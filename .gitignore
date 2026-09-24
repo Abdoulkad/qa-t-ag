@@ -1,0 +1,5 @@
+# Fichiers de travail à ne jamais versionner (QA-T-AG)
+# .interdits : conteneur local des valeurs sensibles d'un cycle (skill qa-t-ag-core, §9)
+.interdits
+.venv/
+node_modules/

@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Entrée du journal QA — QA-T-AG",
+  "description": "Une ligne = une entrée JSON, append-only dans mission-data/<module>/journal-qa.jsonl. Aucune entrée n'est jamais réécrite : une correction est une nouvelle entrée qui référence l'ancienne.",
+  "type": "object",
+  "required": ["id", "timestamp", "module_id", "type", "agent"],
+  "properties": {
+    "id": { "type": "string", "description": "Identifiant unique de l'entrée, ex. QA-2026-000123" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "module_id": { "type": "string" },
+    "agent": { "type": "string", "description": "Agent auteur de l'entrée, ex. QA-T-AG" },
+    "type": {
+      "type": "string",
+      "enum": ["fact", "decision", "defect", "alert", "missing_input", "adaptation", "execution"]
+    },
+    "requirement_id": { "type": "string" },
+    "test_id": { "type": "string" },
+    "execution_id": { "type": "string" },
+    "rectifies": {
+      "type": "string",
+      "description": "Id de l'entrée que celle-ci corrige, si applicable. Ne remplace jamais l'ancienne entrée."
+    },
+    "content": { "type": "object", "description": "Contenu spécifique au type (voir exemples)." }
+  }
+}
