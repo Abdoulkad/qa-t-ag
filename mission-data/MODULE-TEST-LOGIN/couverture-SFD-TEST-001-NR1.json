@@ -1,0 +1,191 @@
+{
+  "cycle": "SFD-TEST-001-v1.0-NR1",
+  "campagne": "non-regression",
+  "module_id": "MODULE-TEST-LOGIN",
+  "seuil": 0.95,
+  "couverture_fonctionnelle": 1.0,
+  "exigences_couvertes": 5,
+  "exigences_totales": 5,
+  "couverture_atteinte": true,
+  "details_exigences": [
+    {
+      "requirement_id": "REQ-001",
+      "nb_tests": 2,
+      "concluants": 2,
+      "couvert": true
+    },
+    {
+      "requirement_id": "REQ-002",
+      "nb_tests": 2,
+      "concluants": 2,
+      "couvert": true
+    },
+    {
+      "requirement_id": "REQ-003",
+      "nb_tests": 3,
+      "concluants": 3,
+      "couvert": true
+    },
+    {
+      "requirement_id": "REQ-004",
+      "nb_tests": 2,
+      "concluants": 2,
+      "couvert": true
+    },
+    {
+      "requirement_id": "REQ-005",
+      "nb_tests": 1,
+      "concluants": 1,
+      "couvert": true
+    }
+  ],
+  "attributs_non_fonctionnels": {
+    "Efficience de performance": {
+      "tests": [
+        "NFT-PERF-01"
+      ],
+      "executes": [
+        "NFT-PERF-01"
+      ],
+      "couvert": true
+    },
+    "Utilisabilité (accessibilité)": {
+      "tests": [
+        "NFT-A11Y-01"
+      ],
+      "executes": [
+        "NFT-A11Y-01"
+      ],
+      "couvert": true
+    },
+    "Sécurité (confidentialité)": {
+      "tests": [
+        "NFT-SEC-01",
+        "NFT-SEC-02",
+        "NFT-SEC-03"
+      ],
+      "executes": [
+        "NFT-SEC-01",
+        "NFT-SEC-03"
+      ],
+      "couvert": true
+    }
+  },
+  "nft_perf_01": {
+    "classe": "instable",
+    "verdict": "INSTABLE",
+    "confiance": "BASSE",
+    "historique_runs": [
+      {
+        "execution_id": "exec-20260923T114027Z",
+        "mediane_ms": 3024.9,
+        "verdict": "FAIL"
+      },
+      {
+        "execution_id": "exec-20260923T114428Z",
+        "mediane_ms": 2991.5,
+        "verdict": "PASS"
+      },
+      {
+        "execution_id": "perf-run3",
+        "mediane_ms": 2953.1,
+        "verdict": "PASS"
+      },
+      {
+        "execution_id": "exec-20260924T154529Z",
+        "mediane_ms": 3012.2,
+        "verdict": "FAIL"
+      }
+    ],
+    "note": "médiane oscillant autour du seuil 3000 ms (réseau non maîtrisé, Sandbox publique)"
+  },
+  "non_regression": {
+    "baseline": "exec-20260923T114428Z",
+    "execution_nr1": "exec-20260924T154529Z",
+    "nb_tests_compares": 13,
+    "nb_regressions": 0,
+    "detail": [
+      {
+        "test_id": "NFT-A11Y-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "NFT-SEC-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "NFT-SEC-03",
+        "base": "INCONCLUSIVE",
+        "nr1": "INCONCLUSIVE",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-001-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-001-02",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-002-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-002-02",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-003-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-003-02",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-003-03",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-004-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-004-02",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      },
+      {
+        "test_id": "TC-REQ-005-01",
+        "base": "PASS",
+        "nr1": "PASS",
+        "regression": false
+      }
+    ],
+    "verdict": "AUCUNE_REGRESSION"
+  },
+  "source_execution": "exec-20260924T154529Z",
+  "generated_at": "2026-09-24T15:47:59Z"
+}

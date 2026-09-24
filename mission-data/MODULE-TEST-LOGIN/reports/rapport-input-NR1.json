@@ -1,0 +1,432 @@
+{
+  "titre": "Rapport de test — SFD-TEST-001 v1.0 — MODULE-TEST-LOGIN (non-régression NR1)",
+  "organisation": "CAISSE NATIONALE DE PRÉVOYANCE SOCIALE (CNPS)",
+  "contexte": [
+    "Module de démonstration public, sans rapport avec un système CNPS réel — utilisé pour valider le pipeline de l'agent QA-T-AG.",
+    "Ce rapport rend compte de la campagne de NON-RÉGRESSION NR1 de la SFD-TEST-001 v1.0 (module MODULE-TEST-LOGIN). La SFD est inchangée par rapport au cycle 1 (empreinte SHA-256 b29f486b43cf2e64fd9115e5f8cdc753d89445bc03d433156b989e5aabb92e64) ; la même suite de tests (identifiants stables) est ré-exécutée pour détecter toute dérive.",
+    "Environnement : Sandbox https://the-internet.herokuapp.com/login. Exécution automatisée par QA-T-AG (Playwright 1.63.0, Chromium)."
+  ],
+  "objectifs": [
+    "Vérifier l'absence de régression sur les 5 exigences fonctionnelles de la SFD-TEST-001.",
+    "Re-contrôler les attributs de qualité applicables : performance, accessibilité, sécurité.",
+    "Comparer les verdicts à la ligne de base du cycle 1 (exec-20260923T114428Z)."
+  ],
+  "execution_intro": [
+    "Campagne NR1 exécutée le 24/09/2026. Couverture fonctionnelle : 100 % (5/5 exigences), calculée par script (couverture-SFD-TEST-001-NR1.json).",
+    "Cas de test : 10 fonctionnels, 5 non fonctionnels. Comparaison à la ligne de base du cycle 1 : 0 régression sur 13 tests comparés (NFT-PERF-01 étant instable par nature, cf. son bloc).",
+    "Transparence d'exécution : une première tentative NR1 (exec-20260924T154401Z) a été interrompue par un timeout réseau au premier chargement de la page (Sandbox publique lente) ; reprise à la 2e tentative (plafond Sandbox = 2 tentatives, skill qa-t-ag-core §5), exécution complète. La première tentative est conservée dans executions/."
+  ],
+  "cas": [
+    {
+      "id": "TC-REQ-001-01",
+      "titre": "Connexion réussie avec identifiants valides",
+      "objectif": "Vérifier qu'un utilisateur disposant d'identifiants valides accède à la zone sécurisée.",
+      "donnees": "Nom d'utilisateur = tomsmith ; Mot de passe = ******** (compte de test documenté).",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Saisir le nom d'utilisateur.",
+        "Saisir le mot de passe.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-001 — Connexion réussie (SFD-TEST-001 v1.0)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "L'utilisateur accède à la zone sécurisée et un message de confirmation s'affiche.",
+      "observe": "Redirection vers /secure. Message : « You logged into a secure area! ». Titre « Secure Area » affiché.",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-001-02",
+      "titre": "Accès direct à la zone sécurisée sans authentification",
+      "objectif": "Vérifier que la zone sécurisée n'est pas accessible sans connexion préalable.",
+      "donnees": "Aucune saisie. Accès direct à l'URL /secure dans un contexte navigateur neuf.",
+      "etapes": [
+        "Ouvrir un contexte navigateur neuf.",
+        "Accéder directement à l'URL /secure."
+      ],
+      "exigence": "REQ-001 — Connexion réussie (contrôle d'accès associé)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Sécurité / Habilitation"
+      ],
+      "attendu": "L'accès est refusé et l'utilisateur est renvoyé vers la page de connexion.",
+      "observe": "Redirection vers /login. Message : « You must login to view the secure area! ». Zone sécurisée non affichée.",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-002-01",
+      "titre": "Nom d'utilisateur inconnu",
+      "objectif": "Vérifier qu'un nom d'utilisateur inconnu est refusé avec un message d'erreur explicite.",
+      "donnees": "Nom d'utilisateur = utilisateur_inconnu ; mot de passe quelconque.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Saisir un nom d'utilisateur inconnu.",
+        "Saisir un mot de passe.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-002 — Nom d'utilisateur invalide",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "Un message d'erreur explicite s'affiche et l'accès est refusé.",
+      "observe": "Reste sur /login. Message : « Your username is invalid! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-002-02",
+      "titre": "Nom d'utilisateur vide avec mot de passe valide",
+      "objectif": "Vérifier le comportement avec un nom d'utilisateur vide (frontière).",
+      "donnees": "Nom d'utilisateur vide ; mot de passe = ********.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Laisser le nom d'utilisateur vide.",
+        "Saisir un mot de passe valide.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-002 — Nom d'utilisateur invalide (frontière : champ vide)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "L'accès est refusé (REQ-002).",
+      "observe": "Reste sur /login. Message : « Your username is invalid! » (libellé exact observé, non précisé par la SFD).",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-003-01",
+      "titre": "Mot de passe incorrect",
+      "objectif": "Vérifier qu'un mot de passe incorrect est refusé avec un message d'erreur explicite.",
+      "donnees": "Nom d'utilisateur = tomsmith ; mot de passe incorrect.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Saisir un nom d'utilisateur valide.",
+        "Saisir un mot de passe incorrect.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-003 — Mot de passe invalide",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "Un message d'erreur explicite s'affiche et l'accès est refusé.",
+      "observe": "Reste sur /login. Message : « Your password is invalid! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-003-02",
+      "titre": "Mot de passe vide avec nom d'utilisateur valide",
+      "objectif": "Vérifier le comportement avec un mot de passe vide (frontière).",
+      "donnees": "Nom d'utilisateur = tomsmith ; mot de passe vide.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Saisir un nom d'utilisateur valide.",
+        "Laisser le mot de passe vide.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-003 — Mot de passe invalide (frontière : champ vide)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "L'accès est refusé et un message d'erreur s'affiche (mot de passe vide = incorrect).",
+      "observe": "Reste sur /login. Message : « Your password is invalid! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-003-03",
+      "titre": "Mot de passe avec une casse différente",
+      "objectif": "Vérifier la sensibilité à la casse du mot de passe.",
+      "donnees": "Nom d'utilisateur = tomsmith ; mot de passe valide saisi en minuscules (masqué).",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Saisir un nom d'utilisateur valide.",
+        "Saisir le mot de passe en minuscules.",
+        "Cliquer sur le bouton Login."
+      ],
+      "exigence": "REQ-003 — Mot de passe invalide (casse)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "L'accès est refusé et un message d'erreur s'affiche (casse différente = incorrect).",
+      "observe": "Reste sur /login. Message : « Your password is invalid! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-004-01",
+      "titre": "Déconnexion",
+      "objectif": "Vérifier que la déconnexion ramène à la page de connexion avec confirmation.",
+      "donnees": "Session ouverte avec le compte de test.",
+      "etapes": [
+        "Se connecter avec des identifiants valides.",
+        "Cliquer sur le bouton Logout."
+      ],
+      "exigence": "REQ-004 — Déconnexion",
+      "risque": "MOYEN",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "Retour à la page de connexion et message de confirmation.",
+      "observe": "Redirection vers /login. Message : « You logged out of the secure area! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-004-02",
+      "titre": "Accès refusé après déconnexion (même contexte)",
+      "objectif": "Vérifier que la zone sécurisée redevient inaccessible après déconnexion.",
+      "donnees": "Contexte où l'utilisateur s'est connecté puis déconnecté.",
+      "etapes": [
+        "Se connecter.",
+        "Se déconnecter.",
+        "Accéder directement à /secure."
+      ],
+      "exigence": "REQ-004 — Déconnexion (révocation d'accès)",
+      "risque": "MOYEN",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "L'accès redevient impossible sans nouvelle connexion.",
+      "observe": "Redirection vers /login. Message : « You must login to view the secure area! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "TC-REQ-005-01",
+      "titre": "Formulaire vide",
+      "objectif": "Vérifier qu'un formulaire vide produit un message d'erreur cohérent.",
+      "donnees": "Champs nom d'utilisateur et mot de passe vides.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Valider le formulaire sans rien saisir."
+      ],
+      "exigence": "REQ-005 — Formulaire vide",
+      "risque": "FAIBLE",
+      "types": [
+        "Fonctionnel"
+      ],
+      "attendu": "Un message d'erreur s'affiche, cohérent avec REQ-002/REQ-003.",
+      "observe": "Reste sur /login. Message : « Your username is invalid! ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "NFT-PERF-01",
+      "titre": "Temps d'affichage de la page de connexion",
+      "objectif": "Vérifier que la page de connexion s'affiche en moins de 3 secondes.",
+      "donnees": "Métrique : événement load. 5 mesures par exécution, verdict sur la médiane.",
+      "etapes": [
+        "Ouvrir la page de connexion.",
+        "Mesurer le délai jusqu'à l'événement load.",
+        "Répéter la mesure 5 fois.",
+        "Calculer la médiane."
+      ],
+      "exigence": "Exigence non fonctionnelle — Performance (SFD-TEST-001)",
+      "risque": "MOYEN",
+      "types": [
+        "Performance"
+      ],
+      "attendu": "Médiane inférieure à 3 000 ms.",
+      "observe": "4 exécutions divergentes (instable/flaky) : 3 024,9 ms (FAIL), 2 991,5 ms (PASS), 2 953,1 ms (PASS), 3 012,2 ms (FAIL). Médianes oscillant autour du seuil de 3 000 ms (réseau non maîtrisé, Sandbox publique).",
+      "confiance": "BASSE (réseau non maîtrisé, Sandbox publique)",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "INCONCLUSIVE",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026",
+      "commentaires": "Résultat instable/flaky confirmé sur 4 exécutions (FAIL/PASS/PASS/FAIL). Ce n'est pas une régression : le cycle 1 présentait déjà cette instabilité. Pas de fiche d'anomalie ouverte (classement instable requiert une décision humaine). À mesurer en environnement maîtrisé pour conclure."
+    },
+    {
+      "id": "NFT-A11Y-01",
+      "titre": "Accessibilité — aucune violation critique WCAG (axe-core)",
+      "objectif": "Vérifier l'absence de violation critique WCAG sur la page de connexion.",
+      "donnees": "Analyse axe-core du DOM de la page de connexion.",
+      "etapes": [
+        "Charger la page de connexion.",
+        "Injecter axe-core.",
+        "Exécuter axe.run().",
+        "Relever les violations critiques."
+      ],
+      "exigence": "Exigence non fonctionnelle — Accessibilité (SFD-TEST-001)",
+      "risque": "MOYEN",
+      "types": [
+        "Accessibilité"
+      ],
+      "attendu": "Aucune violation de sévérité critique.",
+      "observe": "0 violation critique. 5 violations non critiques : color-contrast (serious, 2 nœuds), heading-order, landmark-one-main, page-has-heading-one, region.",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "NFT-SEC-01",
+      "titre": "Champ mot de passe masqué (type=password)",
+      "objectif": "Vérifier que le champ mot de passe masque la saisie.",
+      "donnees": "Inspection de l'attribut type du champ mot de passe.",
+      "etapes": [
+        "Charger la page de connexion.",
+        "Inspecter l'attribut type du champ mot de passe."
+      ],
+      "exigence": "Exigence non fonctionnelle — Sécurité (SFD-TEST-001)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Sécurité / Habilitation"
+      ],
+      "attendu": "Le champ mot de passe porte type=password.",
+      "observe": "Attribut type observé = « password ».",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026"
+    },
+    {
+      "id": "NFT-SEC-02",
+      "titre": "Aucune donnée de connexion en clair dans les livrables",
+      "objectif": "Vérifier que les livrables QA ne contiennent pas le mot de passe en clair.",
+      "donnees": "Recherche du mot de passe par grep + auto-contrôle du script d'exécution.",
+      "etapes": [
+        "Générer les livrables.",
+        "Rechercher le mot de passe en clair.",
+        "Vérifier l'auto-contrôle du script."
+      ],
+      "exigence": "Exigence non fonctionnelle — Sécurité (SFD-TEST-001)",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Sécurité / Habilitation"
+      ],
+      "attendu": "Aucune occurrence du mot de passe en clair.",
+      "observe": "0 occurrence du mot de passe de test ou de toute valeur interdite dans les livrables (grep programmatique sur features/, reports/, executions/, matrice, journal + auto-contrôle du script).",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "PASS",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026",
+      "commentaires": ""
+    },
+    {
+      "id": "NFT-SEC-03",
+      "titre": "Énumération de comptes par les messages d'erreur",
+      "objectif": "Vérifier si les messages d'erreur permettent de distinguer un compte inexistant d'un mot de passe erroné (OWASP A07).",
+      "donnees": "Nom d'utilisateur inconnu ; puis nom d'utilisateur valide avec mot de passe erroné (valeurs masquées).",
+      "etapes": [
+        "Tenter une connexion avec un nom d'utilisateur inconnu.",
+        "Relever le message d'erreur.",
+        "Tenter une connexion avec un mot de passe erroné.",
+        "Comparer les deux messages."
+      ],
+      "exigence": "REQ-002 et REQ-003 — messages d'erreur explicites",
+      "risque": "ÉLEVÉ",
+      "types": [
+        "Sécurité / Habilitation"
+      ],
+      "attendu": "Hypothèse à justifier : la SFD exige des messages explicites, la bonne pratique recommande un message unique.",
+      "observe": "Messages toujours distincts : « Your username is invalid! » et « Your password is invalid! ». Un tiers peut distinguer un compte inexistant d'un mot de passe erroné.",
+      "confiance": "HAUTE",
+      "preuve": "executions/exec-20260924T154529Z/resultats.json",
+      "statut": "INCONCLUSIVE",
+      "captures": [],
+      "testeur": "QA-T-AG (agent IA)",
+      "date": "24/09/2026",
+      "commentaires": "Observation re-confirmée à l'identique en non-régression (aucun changement). Conforme à la SFD, en tension avec OWASP A07. Recommandation : message générique unique. Décision Product Owner toujours ouverte."
+    }
+  ],
+  "recapitulatif": [
+    {
+      "test": "TC-REQ-001-01 à TC-REQ-005-01 (10 cas)",
+      "objectif": "Conformité des 5 exigences fonctionnelles",
+      "attendu": "Comportements décrits par la SFD",
+      "obtenu": "10 PASS (identiques au cycle 1)",
+      "impact": "Aucun",
+      "observations": "Couverture fonctionnelle 100 %, aucune régression",
+      "porteur": "—"
+    },
+    {
+      "test": "NFT-PERF-01",
+      "objectif": "Page de connexion < 3 s",
+      "attendu": "Médiane < 3 000 ms",
+      "obtenu": "NON CONCLUANT (instable)",
+      "impact": "Faible",
+      "observations": "Instabilité confirmée sur 4 exécutions ; mesurer en environnement maîtrisé",
+      "porteur": "DSI"
+    },
+    {
+      "test": "NFT-A11Y-01",
+      "objectif": "Violation de contraste (color-contrast, sévérité serious, WCAG 1.4.3)",
+      "attendu": "Aucune violation critique WCAG",
+      "obtenu": "PASS au critère zéro critique (5 violations non critiques)",
+      "impact": "Faible",
+      "observations": "Corriger les contrastes signalés",
+      "porteur": "Équipe de développement"
+    },
+    {
+      "test": "NFT-SEC-03",
+      "objectif": "Absence d'énumération de comptes",
+      "attendu": "Message d'erreur unique (OWASP A07)",
+      "obtenu": "Messages distincts (inchangé)",
+      "impact": "Moyen",
+      "observations": "Réviser REQ-002/REQ-003 : message générique unique",
+      "porteur": "Product Owner / auteur de la SFD"
+    }
+  ],
+  "conclusion": [
+    "Verdict global : NON CONCLUANT (non-régression sans régression). Le volet fonctionnel est conforme (10/10 PASS, confiance haute) et strictement identique au cycle 1 : aucune régression détectée (0/13 tests comparés).",
+    "Le volet non fonctionnel reste non concluant sur la performance : NFT-PERF-01 est instable/flaky (4 exécutions divergentes autour du seuil de 3 s), résultat inhérent à la Sandbox publique non maîtrisée — pas une régression du module.",
+    "Observation de sécurité NFT-SEC-03 (énumération de comptes par messages distincts) re-confirmée à l'identique : décision Product Owner toujours ouverte. Une non-conformité d'accessibilité non bloquante (contraste, sévérité serious) est relevée."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "cycle": "SFD-TEST-001-v1.0",
+  "module_id": "MODULE-TEST-LOGIN",
+  "execution_id": "exec-20260924T154401Z",
+  "sandbox": "https://the-internet.herokuapp.com/login",
+  "outil": "Playwright 1.63.0 (venv .venv, Chromium système)",
+  "date_execution": "2026-09-24T15:44:58Z",
+  "mot_de_passe_masque": "***",
+  "resultats": [
+    {
+      "test_id": "NFT-SEC-01",
+      "exigence": "SEC",
+      "attribut": "securite",
+      "classe": "fait",
+      "verdict": "PASS",
+      "confiance": "HAUTE",
+      "detail": "champ mot de passe type=password",
+      "preuve": {
+        "type_observe": "password"
+      }
+    },
+    {
+      "test_id": "CYCLE",
+      "exigence": null,
+      "attribut": null,
+      "classe": "fait",
+      "verdict": "BLOCKED",
+      "confiance": "BASSE",
+      "detail": "erreur d'exécution: TimeoutError('Page.goto: Timeout 30000ms exceeded.\\nCall log:\\n  - navigating to \"https://the-internet.herokuapp.com/login\", waiting until \"load\"\\n')",
+      "preuve": {}
+    }
+  ]
+}
