@@ -72,6 +72,80 @@ def _nettoyer_cas(contenu):
         out.append(";".join(parts))
     return "\n".join(out) if out else contenu
 
+
+CAMPAGNES = os.path.join(RACINE, "campagnes")
+HISTORIQUE = os.path.join(CAMPAGNES, "historique.csv")
+
+
+def _parser_defauts(revue):
+    defs = []
+    for m in re.finditer(r"^###\s+(DEF-\d+)\s*[-—–]\s*(.+?)\s*[-—–]\s*(.+?)\s*$",
+                         revue or "", re.MULTILINE):
+        defs.append({"categorie": m.group(2).strip(),
+                     "gravite": m.group(3).strip()})
+    return defs
+
+
+def _metrics():
+    par_gravite, par_categorie, par_priorite, par_type = {}, {}, {}, {}
+    defs = _parser_defauts(st.session_state.revue) if st.session_state.revue else []
+    for d in defs:
+        par_gravite[d["gravite"]] = par_gravite.get(d["gravite"], 0) + 1
+        par_categorie[d["categorie"]] = par_categorie.get(d["categorie"], 0) + 1
+    ct_rows = []
+    if st.session_state.cas_path and os.path.isfile(st.session_state.cas_path):
+        with open(st.session_state.cas_path, encoding="utf-8-sig") as f:
+            rows = list(csv.reader(f, delimiter=";"))
+        ct_rows = [r for r in rows[1:] if len(r) >= 7]
+        for r in ct_rows:
+            par_priorite[r[5]] = par_priorite.get(r[5], 0) + 1
+            par_type[r[6]] = par_type.get(r[6], 0) + 1
+    return {"nb_defauts": len(defs), "nb_ct": len(ct_rows),
+            "par_gravite": par_gravite, "par_categorie": par_categorie,
+            "par_priorite": par_priorite, "par_type": par_type}
+
+
+def _charger_historique():
+    if not os.path.isfile(HISTORIQUE):
+        return []
+    with open(HISTORIQUE, encoding="utf-8-sig") as f:
+        return list(csv.reader(f, delimiter=";"))
+
+
+def _sauvegarder_campagne():
+    import datetime
+    m = _metrics()
+    os.makedirs(CAMPAGNES, exist_ok=True)
+    nouveau = not os.path.isfile(HISTORIQUE) or os.path.getsize(HISTORIQUE) == 0
+    with open(HISTORIQUE, "a", encoding="utf-8", newline="") as f:
+        w = csv.writer(f, delimiter=";")
+        if nouveau:
+            w.writerow(["SFD", "Date", "Défauts", "Cas", "Statut"])
+        w.writerow([st.session_state.sfd_nom or "—",
+                    datetime.date.today().isoformat(),
+                    m["nb_defauts"], m["nb_ct"], "A_CLARIFIER"])
+
+
+PALETTE = ["#e74c3c", "#f39c12", "#27ae60"]  # rouge, orange, vert (3 couleurs max)
+
+
+def _chart_barre(donnees, couleurs_fixes=None):
+    import pandas as pd
+    import altair as alt
+    labels = list(donnees.keys())
+    valeurs = list(donnees.values())
+    if couleurs_fixes:
+        couleurs = [couleurs_fixes.get(l, PALETTE[0]) for l in labels]
+    else:
+        couleurs = [PALETTE[i % len(PALETTE)] for i in range(len(labels))]
+    df = pd.DataFrame({"label": labels, "valeur": valeurs, "couleur": couleurs})
+    return alt.Chart(df).mark_bar().encode(
+        x=alt.X("label:N", sort="-y", title=None),
+        y=alt.Y("valeur:Q", title=None),
+        color=alt.Color("couleur:N", scale=None, legend=None),
+    ).properties(height=220)
+
+
 st.set_page_config(page_title="QA-T-AG", layout="wide", page_icon="🛡️")
 
 # ---------- état de session ----------
@@ -117,6 +191,37 @@ def workdir():
 
 st.title("🛡️ QA-T-AG — Agent QA/BA autonome")
 st.caption("Le script calcule · l'agent analyse · l'humain arbitre")
+
+# ---------- Tableau de bord ----------
+st.header("📊 Tableau de bord")
+m = _metrics()
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("SFD", (st.session_state.sfd_nom or "—")[:20] or "—")
+c2.metric("Défauts", m["nb_defauts"])
+c3.metric("Cas de test", m["nb_ct"])
+c4.metric("Statut", "A_CLARIFIER" if m["nb_defauts"] else "—")
+if m["par_gravite"] or m["par_categorie"] or m["par_priorite"] or m["par_type"]:
+    GRAV = {"Bloquante": "#e74c3c", "Majeure": "#f39c12", "Mineure": "#27ae60"}
+    a, b = st.columns(2)
+    if m["par_gravite"]:
+        a.subheader("Défauts par gravité")
+        a.altair_chart(_chart_barre(m["par_gravite"], GRAV), width="stretch")
+    if m["par_categorie"]:
+        b.subheader("Défauts par catégorie")
+        b.altair_chart(_chart_barre(m["par_categorie"]), width="stretch")
+    c, d = st.columns(2)
+    if m["par_priorite"]:
+        c.subheader("Cas par priorité")
+        c.altair_chart(_chart_barre(m["par_priorite"]), width="stretch")
+    if m["par_type"]:
+        d.subheader("Cas par type")
+        d.altair_chart(_chart_barre(m["par_type"]), width="stretch")
+hist = _charger_historique()
+if len(hist) > 1:
+    st.subheader("Historique des campagnes")
+    import pandas as pd
+    dfh = pd.DataFrame(hist[1:], columns=hist[0])
+    st.dataframe(dfh, width="stretch")
 
 # ---------- ① SFD ----------
 st.header("① SFD")
@@ -297,6 +402,9 @@ if st.session_state.pv2:
         r = run("cahier_word.py", gabarit, st.session_state.cas_path, out)
         if r.returncode == 0:
             st.session_state.cahier_path = out
+            if not st.session_state.get("campagne_sauvegardee"):
+                _sauvegarder_campagne()
+                st.session_state.campagne_sauvegardee = True
         else:
             st.error(r.stdout + r.stderr)
         st.rerun()
