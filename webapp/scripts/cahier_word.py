@@ -19,7 +19,7 @@ import docx
 from docx.text.paragraph import Paragraph
 from docx.table import Table
 
-ORGANISATION = "CNPS — Direction du Système d'Information"
+ORGANISATION = "Direction du Système d'Information"
 
 EN_TETE_CAS = [
     "ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",

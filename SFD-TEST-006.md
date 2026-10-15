@@ -8,7 +8,7 @@ statut: validée
 # SFD-TEST-006 — Connexion d'un assuré réel
 
 **Périmètre** : module de connexion de démonstration (SFD fictive,
-aucun système CNPS). Toutes les données personnelles ci-dessous sont
+aucun système réel). Toutes les données personnelles ci-dessous sont
 inventées pour le test.
 
 ## Contexte fonctionnel

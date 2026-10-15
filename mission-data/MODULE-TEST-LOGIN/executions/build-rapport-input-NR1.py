@@ -20,7 +20,7 @@ by_test = {r["test_id"]: r for r in nr1["resultats"]}
 # --- en-têtes ---
 c1["titre"] = "Rapport de test — SFD-TEST-001 v1.0 — MODULE-TEST-LOGIN (non-régression NR1)"
 c1["contexte"] = [
-    "Module de démonstration public, sans rapport avec un système CNPS réel — utilisé pour valider le pipeline de l'agent QA-T-AG.",
+    "Module de démonstration public, sans rapport avec un système réel — utilisé pour valider le pipeline de l'agent QA-T-AG.",
     "Ce rapport rend compte de la campagne de NON-RÉGRESSION NR1 de la SFD-TEST-001 v1.0 (module MODULE-TEST-LOGIN). La SFD est inchangée par rapport au cycle 1 (empreinte SHA-256 b29f486b43cf2e64fd9115e5f8cdc753d89445bc03d433156b989e5aabb92e64) ; la même suite de tests (identifiants stables) est ré-exécutée pour détecter toute dérive.",
     "Environnement : Sandbox https://the-internet.herokuapp.com/login. Exécution automatisée par QA-T-AG (Playwright 1.63.0, Chromium).",
 ]

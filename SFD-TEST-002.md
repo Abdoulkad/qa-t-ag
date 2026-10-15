@@ -8,7 +8,7 @@ statut: validée
 # SFD-TEST-002 — Sécurisation de la connexion
 
 **Périmètre** : évolution du module de connexion de démonstration
-(SFD fictive, aucun système CNPS).
+(SFD fictive, aucun système réel).
 
 ## Contexte fonctionnel
 

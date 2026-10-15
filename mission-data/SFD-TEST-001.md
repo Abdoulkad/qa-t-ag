@@ -8,7 +8,7 @@ statut: validée
 # SFD-TEST-001 — Module de connexion (module de test QA-T-AG)
 
 **Périmètre** : ceci est une SFD fictive, sur un module de démonstration
-public (pas un système CNPS), utilisée uniquement pour valider le
+public (pas un système réel), utilisée uniquement pour valider le
 fonctionnement de QA-T-AG avant de le brancher sur un vrai module.
 
 ## Contexte fonctionnel

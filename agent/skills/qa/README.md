@@ -1,7 +1,7 @@
 # QA-T-AG — Skills Hermès (16 skills, 19 scripts déterministes)
 
 Implémentation sous **Hermès** du système QA-T-AG (13 agents IA d'assurance
-qualité pour la DSI de la CNPS), migré depuis Claude Code. Principe directeur :
+qualité pour la la DSI), migré depuis Claude Code. Principe directeur :
 **« Le script calcule, l'agent analyse, l'humain arbitre. »**
 
 ## Socle déterministe (Phase 0/1)

@@ -111,7 +111,7 @@ qa-t-ag/
 
 ## Module de démonstration
 
-Sans rapport avec un système CNPS réel : sert à valider le pipeline de
+Sans rapport avec un système réel : sert à valider le pipeline de
 l'agent avant branchement sur un vrai module. Sandbox autorisée :
 `https://the-internet.herokuapp.com/login` (démo publique).
 

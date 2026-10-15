@@ -1,4 +1,4 @@
-"""Génère le rapport de test (format CNPS/DSI) à partir des données
+"""Génère le rapport de test (format DSI) à partir des données
 d'exécution de QA-T-AG.
 
 Usage :

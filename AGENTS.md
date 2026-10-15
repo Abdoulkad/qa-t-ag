@@ -1,6 +1,6 @@
 # AGENTS.md — Contexte de projet QA-T-AG (module de test)
 
-Module de démonstration, sans rapport avec un système CNPS — sert
+Module de démonstration, sans rapport avec un système réel — sert
 uniquement à valider le pipeline complet de QA-T-AG avant de le
 brancher sur un vrai module.
 

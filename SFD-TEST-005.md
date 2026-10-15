@@ -8,7 +8,7 @@ statut: validée
 # SFD-TEST-005 — Connexion sur le nouvel environnement de recette
 
 **Périmètre** : module de connexion de démonstration (SFD fictive,
-aucun système CNPS).
+aucun système réel).
 
 ## Contexte fonctionnel
 

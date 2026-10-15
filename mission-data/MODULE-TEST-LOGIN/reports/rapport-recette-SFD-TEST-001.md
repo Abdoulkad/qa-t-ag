@@ -1,7 +1,7 @@
 # Rapport de recette — SFD-TEST-001 v1.0 (MODULE-TEST-LOGIN)
 
 Cycle : SFD-TEST-001-v1.0 — premier cycle
-Module : MODULE-TEST-LOGIN (démonstration, sans rapport avec un système CNPS)
+Module : MODULE-TEST-LOGIN (démonstration, sans rapport avec un système réel)
 Sandbox : https://the-internet.herokuapp.com/login (démo publique Elemental Selenium)
 Outil : Playwright 1.63.0 (venv dédié `.venv`, Chromium système), axe-core 4.x
 Statut : en attente de signature Human Gate

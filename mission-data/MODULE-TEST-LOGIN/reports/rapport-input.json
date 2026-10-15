@@ -1,8 +1,8 @@
 {
   "titre": "Rapport de test — SFD-TEST-001 v1.0 — MODULE-TEST-LOGIN",
-  "organisation": "CAISSE NATIONALE DE PRÉVOYANCE SOCIALE (CNPS)",
+  "organisation": "ORGANISATION DE RÉFÉRENCE",
   "contexte": [
-    "Module de démonstration public, sans rapport avec un système CNPS réel — utilisé pour valider le pipeline de l'agent QA-T-AG.",
+    "Module de démonstration public, sans rapport avec un système réel — utilisé pour valider le pipeline de l'agent QA-T-AG.",
     "Ce rapport rend compte de la campagne de test de la SFD-TEST-001 v1.0 (module MODULE-TEST-LOGIN).",
     "Environnement : Sandbox https://the-internet.herokuapp.com/login. Exécution automatisée par QA-T-AG (Playwright, Chromium), terminal en mode local par dérogation temporaire."
   ],

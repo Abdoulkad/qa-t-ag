@@ -45,7 +45,7 @@ EXIGENCES = ["REQ-001", "REQ-002", "REQ-003", "REQ-004", "REQ-005", "REQ-006", "
 def base(titre):
     return {
         "titre": titre,
-        "organisation": "CAISSE NATIONALE DE PRÉVOYANCE SOCIALE (CNPS)",
+        "organisation": "ORGANISATION DE RÉFÉRENCE",
         "contexte": ["Cycle 2 — SFD-PIEGE-001 v1.0 (MODULE-TEST-LOGIN)."],
         "objectifs": ["Conformité des exigences de la SFD-PIEGE-001."],
         "execution_intro": [],

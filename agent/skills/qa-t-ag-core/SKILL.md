@@ -4,7 +4,7 @@ description: Logique opérationnelle de QA-T-AG — connaissance, workflow, clas
 version: 1.0.0
 metadata:
   hermes:
-    tags: [qa, ba, testing, istqb, cnps]
+    tags: [qa, ba, testing, istqb]
     category: qa
     config:
       - key: qa_t_ag.functional_coverage_min
@@ -279,7 +279,7 @@ couverture atteinte avec sa source de calcul, verdict global avec
 confiance de preuve, anomalies critiques s'il y en a, ce qui bloque, ce
 qui reste à trancher côté humain, prochaine action.
 
-## 9. Rapport de recette au format CNPS/DSI
+## 9. Rapport de recette au format DSI
 
 Le rapport officiel est un document Word produit à partir du template de
 la DSI. Tu ne le rédiges jamais à la main : tu le **génères** à partir

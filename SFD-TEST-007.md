@@ -8,7 +8,7 @@ statut: validée
 # SFD-TEST-007 — Qualité perçue de la connexion
 
 **Périmètre** : module de connexion de démonstration (SFD fictive,
-aucun système CNPS).
+aucun système réel).
 
 ## Contexte fonctionnel
 
