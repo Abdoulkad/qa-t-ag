@@ -65,3 +65,31 @@ class AjoutParticipant(BaseModel):
 class Decision(BaseModel):
     decision: str = Field(pattern="^(APPROUVE|REJETE)$")
     commentaire: str = ""
+
+
+class Reponse(BaseModel):
+    reponse: str = ""
+
+
+class Precision(BaseModel):
+    question: str = Field(min_length=1)
+    reponse: str = Field(min_length=1)
+
+
+class EcartCritere(BaseModel):
+    motif: str = Field(min_length=1)
+
+
+class ModificationCas(BaseModel):
+    titre: str | None = None
+    objectif: str | None = None
+    exigence: str | None = None
+    technique: str | None = None
+    justification_technique: str | None = None
+    priorite: str | None = None
+    type: str | None = None
+    preconditions: str | None = None
+    donnees_test: str | None = None
+    etapes: str | None = None
+    resultat_attendu: str | None = None
+    confirmer: bool = False

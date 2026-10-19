@@ -8,10 +8,11 @@ from .. import missions as svc
 from ..db import session_db
 from ..deps import acteur_mission, utilisateur_courant
 from ..extraction import FichierRefuse, extraire
-from ..models import (DecisionPorte, EntreeJournal, Execution, Mission, TacheIA, Utilisateur,
-                      CasTest, VersionExigence)
+from ..models import (CasTest, DecisionPorte, EntreeJournal, Execution, Mission, TacheIA, Trace,
+                      Utilisateur, VersionExigence)
 from ..regles import PORTES
-from .schemas import AjoutParticipant, CreationMission, Decision, NouvelleVersion
+from .schemas import (AjoutParticipant, CreationMission, Decision, EcartCritere,
+                      ModificationCas, NouvelleVersion, Precision, Reponse)
 
 routeur = APIRouter(prefix="/api", tags=["Missions"])
 
@@ -42,10 +43,16 @@ def _version(db: Session, v: VersionExigence) -> dict:
         "defauts": [{"id": d.id, "code": d.code, "categorie": d.categorie, "gravite": d.gravite,
                      "section": d.section, "citation": d.citation,
                      "citation_verifiee": d.citation_verifiee} for d in v.defauts],
-        "questions": [{"id": q.id, "defaut_id": q.defaut_id, "question": q.question,
-                       "bloquante": q.bloquante, "reponse": q.reponse,
+        "questions": [{"id": q.id, "code": q.code, "defaut_id": q.defaut_id,
+                       "question": q.question, "bloquante": q.bloquante, "reponse": q.reponse,
+                       "ajoutee_par_humain": q.ajoutee_par_id is not None,
                        "repondu_par_id": q.repondu_par_id, "repondu_le": q.repondu_le}
                       for q in v.questions],
+        "texte_reecrit": v.texte_reecrit, "controle_reecriture": v.controle_reecriture,
+        "controle_conception": v.controle_conception,
+        "criteres": [{"id": c.id, "code": c.code, "texte": c.texte, "sources": c.sources,
+                      "sources_rejetees": c.sources_rejetees, "statut": c.statut}
+                     for c in v.criteres],
         "decisions": [{"porte": d.porte, "decision": d.decision, "commentaire": d.commentaire,
                        "decideur_id": d.decideur_id, "auto_validation": d.auto_validation,
                        "decide_le": d.decide_le} for d in decisions],
@@ -183,3 +190,125 @@ def pilotage(u: Utilisateur = Depends(utilisateur_courant), db: Session = Depend
         "taux_approbation": round(100 * dec.get("APPROUVE", 0) / total_dec) if total_dec else None,
         "file_human_gate": [_resume(m) for m in en_attente],
     }
+
+
+# --- Lot 2 : clarification, réécriture, conception -------------------------
+
+@routeur.put("/missions/{mission_id}/questions/{question_id}")
+def repondre(mission_id: int, question_id: int, entree: Reponse,
+             u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    q = svc.repondre(db, u, _mission(db, u, mission_id), question_id, entree.reponse)
+    return {"id": q.id, "code": q.code, "reponse": q.reponse, "repondu_le": q.repondu_le}
+
+
+@routeur.post("/missions/{mission_id}/questions", status_code=201)
+def ajouter_precision(mission_id: int, entree: Precision,
+                      u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    q = svc.ajouter_precision(db, u, _mission(db, u, mission_id), entree.question, entree.reponse)
+    return {"id": q.id, "code": q.code}
+
+
+@routeur.post("/missions/{mission_id}/reecriture", status_code=202)
+def reecrire(mission_id: int, u: Utilisateur = Depends(acteur_mission),
+             db: Session = Depends(session_db)):
+    t = svc.lancer_reecriture(db, u, _mission(db, u, mission_id))
+    return {"tache_id": t.id}
+
+
+@routeur.delete("/missions/{mission_id}/criteres/{critere_id}")
+def ecarter_critere(mission_id: int, critere_id: int, entree: EcartCritere,
+                    u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    svc.ecarter_critere(db, u, _mission(db, u, mission_id), critere_id, entree.motif)
+    return {"ecarte": True}
+
+
+@routeur.post("/missions/{mission_id}/relancer", status_code=202)
+def relancer(mission_id: int, u: Utilisateur = Depends(acteur_mission),
+             db: Session = Depends(session_db)):
+    t = svc.relancer(db, u, _mission(db, u, mission_id))
+    return {"tache_id": t.id}
+
+
+def _cas(c: CasTest, refs: list[str]) -> dict:
+    return {"id": c.id, "code": c.code, "titre": c.titre, "objectif": c.objectif,
+            "exigence": c.exigence, "references": refs, "technique": c.technique,
+            "justification_technique": c.justification_technique, "priorite": c.priorite,
+            "type": c.type, "preconditions": c.preconditions, "donnees_test": c.donnees_test,
+            "etapes": c.etapes, "resultat_attendu": c.resultat_attendu, "statut": c.statut,
+            "motif_statut": c.motif_statut, "confirme_par_id": c.confirme_par_id}
+
+
+def _refs(db: Session, ids: list[int]) -> dict[int, list[str]]:
+    refs: dict[int, list[str]] = {i: [] for i in ids}
+    for cas_id, ref in db.execute(select(Trace.cas_id, Trace.reference)
+                                  .where(Trace.cas_id.in_(ids)).order_by(Trace.reference)):
+        refs[cas_id].append(ref)
+    return refs
+
+
+@routeur.get("/missions/{mission_id}/cas")
+def cas_mission(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
+                db: Session = Depends(session_db)):
+    v = svc.version_courante(_mission(db, u, mission_id))
+    cas = db.scalars(select(CasTest).where(CasTest.version_id == v.id)
+                     .order_by(CasTest.code)).all()
+    refs = _refs(db, [c.id for c in cas])
+    return [_cas(c, refs[c.id]) for c in cas]
+
+
+@routeur.patch("/missions/{mission_id}/cas/{cas_id}")
+def modifier_cas(mission_id: int, cas_id: int, entree: ModificationCas,
+                 u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    champs = entree.model_dump(exclude={"confirmer"}, exclude_none=True)
+    c = svc.modifier_cas(db, u, _mission(db, u, mission_id), cas_id, champs, entree.confirmer)
+    return _cas(c, _refs(db, [c.id])[c.id])
+
+
+@routeur.get("/missions/{mission_id}/tracabilite")
+def tracabilite(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
+                db: Session = Depends(session_db)):
+    """Matrice exigences/critères ↔ cas et couverture (AG-03), calculées en base."""
+    v = svc.version_courante(_mission(db, u, mission_id))
+    cas = db.scalars(select(CasTest).where(CasTest.version_id == v.id)
+                     .order_by(CasTest.code)).all()
+    refs = _refs(db, [c.id for c in cas])
+    from ..scripts_qa import references
+    lignes_ref = [(c.code, c.texte) for c in v.criteres] + \
+                 [(r, "") for r in references(v.texte)]
+    matrice = [{"reference": r, "libelle": lib,
+                "cas": [c.code for c in cas if r in refs[c.id]]} for r, lib in lignes_ref]
+    couvertes = sum(1 for ligne in matrice if ligne["cas"])
+    techniques: dict[str, int] = {}
+    for c in cas:
+        techniques[c.technique] = techniques.get(c.technique, 0) + 1
+    return {"matrice": matrice,
+            "couverture": round(100 * couvertes / len(matrice)) if matrice else None,
+            "cas_sans_reference": [c.code for c in cas if not refs[c.id]],
+            "par_technique": techniques}
+
+
+@routeur.get("/cas")
+def suivi_des_cas(q: str | None = None, mission_id: int | None = None,
+                  statut: str | None = None, u: Utilisateur = Depends(utilisateur_courant),
+                  db: Session = Depends(session_db)):
+    """Suivi des cas : tous les cas des versions courantes des missions visibles."""
+    missions_visibles = db.scalars(svc.visible_par(u)).all()
+    if mission_id:
+        missions_visibles = [m for m in missions_visibles if m.id == mission_id]
+    courantes = {svc.version_courante(m).id: m for m in missions_visibles if m.versions}
+    requete = select(CasTest).where(CasTest.version_id.in_(list(courantes)))
+    if statut:
+        requete = requete.where(CasTest.statut == statut)
+    if q:
+        motif = "%%%s%%" % q.strip()
+        requete = requete.where(CasTest.code.ilike(motif) | CasTest.titre.ilike(motif) |
+                                CasTest.exigence.ilike(motif))
+    cas = db.scalars(requete.order_by(CasTest.version_id.desc(), CasTest.code)).all()
+    refs = _refs(db, [c.id for c in cas])
+    compte = {s: 0 for s in ("PRET", "INCOMPLET", "A_CLARIFIER")}
+    for c in cas:
+        compte[c.statut] += 1
+    return {"total": len(cas), "par_statut": compte,
+            "cas": [{**_cas(c, refs[c.id]), "mission": {
+                "id": courantes[c.version_id].id, "reference": courantes[c.version_id].reference,
+                "titre": courantes[c.version_id].titre}} for c in cas]}

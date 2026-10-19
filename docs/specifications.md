@@ -55,8 +55,9 @@ consultables en lecture seule.
   par script (`empreinte.py`), jamais par l'IA.
 - **RA-09** Une mission a des **participants**. Son créateur en fait partie
   d'office.
-- **RA-10** Une version validée ou rejetée n'est plus modifiable. Corriger
-  revient à créer une nouvelle version.
+- **RA-10** Une version validée (PV-1) ou rejetée n'est plus modifiable :
+  texte, réponses et critères sont figés. Corriger revient à créer une
+  nouvelle version. Les cas de test restent corrigeables jusqu'à PV-2.
 
 ### Statuts de mission
 
@@ -108,6 +109,10 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
   refusé tant qu'il reste une hypothèse : l'IA n'invente pas de règle métier.
 - **RA-21** La réécriture n'est possible qu'une fois toutes les questions
   bloquantes répondues.
+- Pour lever une hypothèse avant PV-1, l'humain peut : répondre à une question
+  ou ajouter une **précision** (question + réponse, numérotée Q-n comme les
+  autres) puis relancer la réécriture ; ou **écarter** le critère avec un
+  motif obligatoire, inscrit au journal.
 
 ## 6. Conception des cas de test (AG-02 à AG-05)
 
@@ -117,13 +122,22 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
   techniques annoncées mais pas démontrées)*.
 - **RA-23** Un cas est `PRET` seulement s'il a des préconditions, des données de
   test concrètes et un résultat attendu. Sinon il est `INCOMPLET` *(retour
-  testeur : statut « OK » sans données de test)*.
+  testeur : statut « OK » sans données de test)*. Ne sont **pas** concrètes :
+  une variable `{…}`, « à définir », « TBD », ou une description de classe
+  sans valeur précise (« mot de passe valide », « un e-mail existant »).
+  « Sans objet » est accepté quand le cas ne demande aucune donnée. Le statut
+  est calculé par le serveur, jamais recopié de l'IA.
 - **RA-24** Un cas lié à un point non résolu est `A_CLARIFIER`.
 - **RA-25** Chaque cas est tracé vers au moins une exigence ou un critère
   (matrice calculée par `tracer.py`).
 - **RA-26** PV-2 est **refusé** tant qu'un cas est `A_CLARIFIER` ou
   `INCOMPLET`. La réponse liste les cas qui bloquent *(retour testeur : clôture
   PV-2 possible avec des critères « À clarifier »)*.
+- **RA-41** PV-2 est aussi refusé tant qu'un critère d'acceptation n'est couvert
+  par aucun cas.
+- Un cas se corrige champ par champ avant PV-2 ; son statut est recalculé. Un
+  cas signalé « À clarifier » par l'agent ne devient `PRET` qu'après une
+  confirmation humaine explicite, tracée au journal.
 
 ## 7. Recette (exécution)
 
@@ -220,7 +234,8 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-17 | `test_clarte.py` | 1 |
 | RA-34, RA-35 | `test_journal.py` | 1 |
 | RA-36 à RA-39 | `test_ia.py` | 1 |
-| RA-18, RA-19, RA-21 à RA-25 | à venir (clarification, réécriture, conception) | 2 |
+| RA-18 à RA-21 | `test_clarification.py` | 2 |
+| RA-22 à RA-26, RA-41 | `test_conception.py` | 2 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

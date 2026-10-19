@@ -109,12 +109,15 @@ class VersionExigence(Base):
     code_controle_revue: Mapped[int | None] = mapped_column(Integer)
     score_clarte: Mapped[int | None] = mapped_column(Integer)
     texte_reecrit: Mapped[str | None] = mapped_column(Text)
+    controle_reecriture: Mapped[str | None] = mapped_column(Text)
+    controle_conception: Mapped[str | None] = mapped_column(Text)
     figee: Mapped[bool] = mapped_column(Boolean, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
     mission: Mapped[Mission] = relationship(back_populates="versions")
     defauts: Mapped[list["Defaut"]] = relationship(order_by="Defaut.code")
     questions: Mapped[list["QuestionMetier"]] = relationship(order_by="QuestionMetier.id")
+    criteres: Mapped[list["CritereAcceptation"]] = relationship(order_by="CritereAcceptation.code")
 
     __table_args__ = (UniqueConstraint("mission_id", "numero", name="uq_version_numero"),)
 
@@ -136,7 +139,9 @@ class QuestionMetier(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     version_id: Mapped[int] = mapped_column(ForeignKey("version_exigence.id"), index=True)
     defaut_id: Mapped[int | None] = mapped_column(ForeignKey("defaut.id"))
+    code: Mapped[str] = mapped_column(String(10))
     question: Mapped[str] = mapped_column(Text)
+    ajoutee_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
     bloquante: Mapped[bool] = mapped_column(Boolean, default=False)
     reponse: Mapped[str | None] = mapped_column(Text)
     repondu_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
@@ -150,6 +155,7 @@ class CritereAcceptation(Base):
     code: Mapped[str] = mapped_column(String(20))
     texte: Mapped[str] = mapped_column(Text)
     sources: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    sources_rejetees: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     statut: Mapped[str] = mapped_column(String(20))
     __table_args__ = (CheckConstraint(_dans("statut", ("SOURCE", "HYPOTHESE")),
                                       name="ck_critere_statut"),)
@@ -172,7 +178,12 @@ class CasTest(Base):
     etapes: Mapped[str] = mapped_column(Text, default="")
     resultat_attendu: Mapped[str] = mapped_column(Text, default="")
     statut: Mapped[str] = mapped_column(String(20))
-    __table_args__ = (CheckConstraint(_dans("statut", STATUTS_CAS), name="ck_cas_statut"),)
+    motif_statut: Mapped[str] = mapped_column(Text, default="")
+    confirme_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    __table_args__ = (
+        CheckConstraint(_dans("statut", STATUTS_CAS), name="ck_cas_statut"),
+        UniqueConstraint("version_id", "code", name="uq_cas_code"),
+    )
 
 
 class Trace(Base):
