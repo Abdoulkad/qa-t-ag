@@ -63,7 +63,7 @@ def test_pv1_bloque_puis_debloque_en_traitant_les_hypotheses(client, admin, ia):
     _repondre(client, admin, mid, "Q-1", "30 minutes")
     client.post("/api/missions/%d/reecriture" % mid, headers=admin)
     m = _detail(client, admin, mid)
-    assert m["bloquants_porte"] == ["CA-02 : critère sans source (hypothèse)",
+    assert m["bloquants_porte"] == ["CA-02 : source non valable (Q-2)",
                                     "CA-03 : critère sans source (hypothèse)"]
     # L'humain répond à Q-2 puis relance la réécriture : CA-02 devient sourcé
     assert _repondre(client, admin, mid, "Q-2", "8 caractères minimum").status_code == 200

@@ -98,10 +98,13 @@ def ajouter_participant(db: Session, acteur: Utilisateur, m: Mission, email: str
 def bloquants_porte(db: Session, porte: str, v: VersionExigence) -> tuple[str, list[str]]:
     """Ce qui empêche d'approuver une porte : (règle, liste d'éléments)."""
     if porte == "PV-1":
-        hypotheses = db.scalars(select(CritereAcceptation.code).where(
-            CritereAcceptation.version_id == v.id,
-            CritereAcceptation.statut == "HYPOTHESE")).all()
-        return "RA-20", ["%s : critère sans source (hypothèse)" % c for c in hypotheses]
+        hypotheses = db.execute(select(CritereAcceptation.code, CritereAcceptation.sources_rejetees)
+                                .where(CritereAcceptation.version_id == v.id,
+                                       CritereAcceptation.statut == "HYPOTHESE")
+                                .order_by(CritereAcceptation.code)).all()
+        return "RA-20", [("%s : source non valable (%s)" % (c, ", ".join(rej))) if rej
+                         else "%s : critère sans source (hypothèse)" % c
+                         for c, rej in hypotheses]
     cas = db.execute(select(CasTest.code, CasTest.statut).where(
         CasTest.version_id == v.id).order_by(CasTest.code)).all()
     if not cas:

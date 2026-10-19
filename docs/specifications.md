@@ -108,8 +108,11 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
 - **RA-19** Chaque critère d'acceptation réécrit **cite au moins une source** :
   une phrase de l'exigence d'origine (citée mot pour mot) ou une réponse de
   l'étape Clarifier. Un script le vérifie.
-- **RA-20** Un critère sans source vérifiable est marqué `HYPOTHESE`. PV-1 est
-  refusé tant qu'il reste une hypothèse : l'IA n'invente pas de règle métier.
+- **RA-20** Un critère sans source vérifiable est marqué `HYPOTHESE`. Il l'est
+  aussi dès qu'**une** de ses sources est rejetée (citation introuvable,
+  question sans réponse ou décidée), même si une autre est valide : la partie
+  qui en dépend ne repose sur rien. PV-1 est refusé tant qu'il reste une
+  hypothèse : l'IA n'invente pas de règle métier.
 - **RA-21** La réécriture n'est possible qu'une fois toutes les questions
   bloquantes **traitées** : répondues, ou déclarées hors périmètre ou
   reportées (RA-42).
@@ -255,7 +258,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-36 à RA-39 | `test_ia.py` | 1 |
 | RA-18 à RA-21 | `test_clarification.py` | 2 |
 | RA-22 à RA-26, RA-41 | `test_conception.py` | 2 |
-| RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
+| RA-20 (source rejetée), RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

@@ -33,6 +33,11 @@ critère dessus : range le sujet dans la section « ## Points ouverts » (voir
 le format). Une question déclarée **hors périmètre** par l'humain ne donne
 lieu à rien. Une question **reportée** va dans les points ouverts.
 
+Chaque source citée doit être valable. Un critère qui cite **une seule**
+source non valable (citation introuvable, question sans réponse) est marqué
+`HYPOTHESE`, même si ses autres sources sont bonnes : la partie qui en dépend
+ne repose sur rien. N'ajoute pas une question ouverte « pour faire bien ».
+
 ## Qualité des critères
 
 - Forme Gherkin : « Étant donné …, quand …, alors … ».

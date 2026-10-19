@@ -109,3 +109,19 @@ def test_ecarter_plusieurs_hypotheses_en_une_fois(client, admin, ia):
     evts = [e for e in client.get("/api/missions/%d/journal" % mid, headers=admin).json()
             if e["evenement"] == "critere_ecarte"]
     assert len(evts) == 2
+
+
+def test_source_valide_ne_couvre_pas_une_question_reportee(client, admin, ia):
+    """Faille corrigée (RA-20) : CA-01 cite « durée limitée » (valide) et Q-1
+    (reportée). Les « 30 minutes » ne reposent sur rien : hypothèse, PV-1 bloqué."""
+    mid = _mission(client, admin)
+    _decider(client, admin, mid, ["Q-1"], "REPORTEE", "Attente du PO")
+    client.post("/api/missions/%d/reecriture" % mid, headers=admin)
+    m = _detail(client, admin, mid)
+    ca1 = next(c for c in m["versions"][0]["criteres"] if c["code"] == "CA-01")
+    assert ca1["statut"] == "HYPOTHESE"
+    assert ca1["sources"] == ["« durée limitée »"] and ca1["sources_rejetees"] == ["Q-1"]
+    assert "CA-01 : source non valable (Q-1)" in m["bloquants_porte"]
+    r = client.post("/api/missions/%d/portes/PV-1" % mid, json={"decision": "APPROUVE"},
+                    headers=admin)
+    assert r.status_code == 409 and r.json()["regle"] == "RA-20"

@@ -140,8 +140,11 @@ def verifier(origine, rapport, questions_repondues):
             (valides if q in repondues else rejetees).append(q)
         c["sources"] = valides
         c["sources_rejetees"] = rejetees
-        c["statut"] = "SOURCE" if valides else "HYPOTHESE"
-        hypothese = hypothese or not valides
+        # RA-20 : une seule source rejetée suffit. Elle signale une partie du
+        # critère qui ne repose sur rien (ex. « 30 minutes » tiré d'une question
+        # reportée), même si une autre source est valide.
+        c["statut"] = "SOURCE" if valides and not rejetees else "HYPOTHESE"
+        hypothese = hypothese or c["statut"] == "HYPOTHESE"
     return (1 if hypothese else 0), texte, criteres, []
 
 
@@ -171,6 +174,10 @@ En tant qu'utilisateur, je réinitialise mon mot de passe.
     code, *_ = verifier(origine, bon, ["Q-1", "Q-2"])
     if code != 1:      # CA-03 reste inventé
         echecs.append(("citation inventée", code))
+    # Faille corrigée : une source valide ne couvre pas une source rejetée
+    code, _, cas, _ = verifier(origine, bon, [])          # Q-1 non répondue
+    if cas[0]["statut"] != "HYPOTHESE" or cas[0]["sources_rejetees"] != ["Q-1"]:
+        echecs.append(("source rejetée à côté d'une source valide", cas[0]))
     code, _, _, err = verifier(origine, "pas de format", [])
     if code != 2:
         echecs.append(("mal formé", code, err))

@@ -44,7 +44,9 @@ def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]
                 and q.get("decision") != "HORS_PERIMETRE"]
     if ouvertes:
         lignes += ["", "## Questions sans réponse ou reportées (PAS des sources : "
-                       "aucun critère dessus, range chaque sujet dans « ## Points ouverts »)"]
+                       "aucun critère dessus, range chaque sujet dans « ## Points ouverts ». "
+                       "Un critère qui en cite une est marqué hypothèse, même s'il a "
+                       "d'autres sources)"]
         lignes += ["- %s — %s%s" % (q["code"], q["question"],
                                     " (reportée)" if q.get("decision") == "REPORTEE" else "")
                    for q in ouvertes]
