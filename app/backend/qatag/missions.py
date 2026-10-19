@@ -3,7 +3,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from . import journal, regles, scripts_qa, taches
-from .models import (CasTest, CritereAcceptation, DecisionPorte, Mission, Participant,
+from .models import (CasTest, ConfigIA, CritereAcceptation, DecisionPorte, Mission, Participant,
                      QuestionMetier, Trace, Utilisateur, VersionExigence, maintenant)
 from .regles import RegleViolee
 
@@ -46,6 +46,10 @@ def _ajouter_version(db: Session, m: Mission, auteur: Utilisateur, texte: str,
 
 def creer(db: Session, auteur: Utilisateur, titre: str, texte: str,
           nom_source: str = "texte saisi") -> tuple[Mission, "taches.TacheIA"]:
+    if db.get(ConfigIA, auteur.organisation_id) is None:              # RA-37
+        raise RegleViolee("RA-37", "Aucune IA n'est configurée : un administrateur doit "
+                                   "en choisir une dans Configuration IA avant la première "
+                                   "analyse.")
     m = Mission(organisation_id=auteur.organisation_id, titre=titre.strip(),
                 reference=_reference_suivante(db, auteur.organisation_id),
                 statut="ANALYSE_EN_COURS", createur_id=auteur.id)

@@ -8,6 +8,10 @@ import Exigence from "./mission/Exigence";
 import Porte from "./mission/Porte";
 import Tracabilite from "./mission/Tracabilite";
 
+const NOM_TACHE: Record<string, string> = {
+  ANALYSE: "L'analyse (AG-01)", REECRITURE: "La réécriture", CONCEPTION: "La conception (AG-02)",
+};
+
 const LIBELLE_TACHE: Record<string, string> = {
   ANALYSE: "L'agent AG-01 analyse l'exigence",
   REECRITURE: "L'agent réécrit l'exigence à partir de vos réponses",
@@ -79,8 +83,12 @@ export default function MissionPage() {
           vous pouvez aussi la quitter.
         </div>
       )}
-      {suivi.tache?.etat === "ECHEC" && !suivi.enCours && (
-        <div className="message-erreur">L'agent a échoué : {suivi.tache.erreur}</div>
+      {!suivi.enCours && m.taches_en_cours.length === 0 && m.derniere_tache?.etat === "ECHEC" && (
+        <div className="message-erreur" role="alert">
+          <strong>{NOM_TACHE[m.derniere_tache.type] ?? "L'agent"} a échoué</strong>
+          {m.derniere_tache.termine_le && <> le {date(m.derniere_tache.termine_le)}</>} :{" "}
+          {m.derniere_tache.erreur}
+        </div>
       )}
 
       {historique && (

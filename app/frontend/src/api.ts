@@ -137,6 +137,8 @@ export interface Mission extends ResumeMission {
   participants: { id: number; email: string; nom: string }[];
   versions: Version[];
   taches_en_cours: number[];
+  derniere_tache: { id: number; type: string; etat: Tache["etat"]; erreur: string | null;
+                    termine_le: string | null } | null;
   porte_en_attente: "PV-1" | "PV-2" | null;
   bloquants_porte: string[];
 }

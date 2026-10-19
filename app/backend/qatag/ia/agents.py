@@ -20,8 +20,10 @@ def consigne_revue(texte: str) -> str:
             "2) Inventaire REQ/BR concis (une ligne par point). "
             "3) Chaque défaut a sa citation mot pour mot ET une ligne "
             "« - **Question** : » posant la question métier au rédacteur. "
-            "4) Termine TOUJOURS par « ## Statut du livrable » suivi d'une "
-            "valeur canonique. N'invente aucune règle métier.")
+            "4) Les quatre sections sont OBLIGATOIRES, dans cet ordre, même vides : "
+            "« ## Alerte sécurité » (écris « Aucune » s'il n'y en a pas), "
+            "« ## Inventaire REQ et BR », « ## Défauts », « ## Statut du livrable » "
+            "suivi d'une valeur canonique. N'invente aucune règle métier.")
 
 
 def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]) -> str:

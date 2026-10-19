@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { api, type ResumeMission } from "../api";
-import { MessageErreur, useAction } from "../composants";
+import { Link, useNavigate } from "react-router-dom";
+import { api, type ConfigIA, type ResumeMission } from "../api";
+import { MessageErreur, useAction, useDonnees } from "../composants";
+import { useSession } from "../session";
 
 const EXEMPLE = `US-042 — Réinitialisation du mot de passe
 En tant qu'utilisateur, je veux réinitialiser mon mot de passe facilement depuis la page de connexion.
@@ -19,6 +20,9 @@ export default function Analyse() {
   const [survol, setSurvol] = useState(false);
   const champFichier = useRef<HTMLInputElement>(null);
   const { enCours, erreur, lancer } = useAction();
+  const config = useDonnees<ConfigIA>("/config-ia");
+  const { a } = useSession();
+  const sansIA = config.donnees !== null && config.donnees.actif === null;
 
   const choisir = (f: File | undefined) => {
     if (!f) return;
@@ -50,6 +54,15 @@ export default function Analyse() {
           <p>Déposez une SFD ou une User Story. L'agent AG-01 relève les défauts et prépare les questions métier.</p>
         </div>
       </div>
+
+      {sansIA && (
+        <div className="message-erreur" role="alert">
+          Aucune IA n'est encore configurée : l'analyse ne peut pas démarrer.{" "}
+          {a("ADMIN")
+            ? <Link to="/configuration">Choisir l'IA dans Configuration IA</Link>
+            : "Demandez à un administrateur de la choisir dans Configuration IA."}
+        </div>
+      )}
 
       <section className="panneau">
         <div className="panneau-corps pile">
@@ -90,7 +103,7 @@ export default function Analyse() {
 
           <MessageErreur erreur={erreur} />
           <div className="rangee">
-            <button className="bouton principal" disabled={enCours || !titre.trim() || (!fichier && !texte.trim())}>
+            <button className="bouton principal" disabled={enCours || sansIA || !titre.trim() || (!fichier && !texte.trim())}>
               {enCours ? "Envoi…" : "Lancer l'analyse"}
             </button>
             {!fichier && (

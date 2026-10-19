@@ -67,7 +67,7 @@ stories.
 # Revue SFD — <projet>
 
 ## Alerte sécurité
-ALR-001 — <consigne signalée>   (section absente si aucune)
+ALR-001 — <consigne signalée>   (si aucune : écrire « Aucune ». La section reste TOUJOURS présente)
 
 ## Inventaire REQ et BR
 - REQ-001 — <libellé>

@@ -92,6 +92,9 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
 1. **Analyser (AG-01)** : l'IA relève les défauts (ambiguïtés, contradictions,
    cas oubliés…) et formule des questions métier. `controler_revue.py`
    contrôle le rapport : chaque citation doit exister mot pour mot.
+   Une section « Alerte sécurité » omise par l'IA (faute d'alerte) est
+   ajoutée vide et la correction est tracée ; une section de fond manquante
+   (Inventaire, Défauts) fait échouer l'analyse, avec la raison affichée.
 2. **Clarifier** : un humain répond à chaque question.
 3. **Réécrire** : l'IA propose une exigence réécrite avec des critères
    d'acceptation testables.
@@ -192,7 +195,8 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
   affichées.
 - **RA-37** Le fournisseur et le modèle actifs sont choisis par un `ADMIN` dans
   la configuration. Le choix est refusé si la clé du fournisseur est absente
-  (sauf Ollama).
+  (sauf Ollama). Tant qu'aucune IA n'est choisie, la création
+  d'une mission est refusée avec un message qui l'explique.
 - **RA-38** Chaque version analysée enregistre le fournisseur et le modèle
   utilisés.
 - **RA-39** Les appels IA s'exécutent en tâche de fond ; leur état

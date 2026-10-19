@@ -94,6 +94,8 @@ def detail(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
     m = _mission(db, u, mission_id)
     taches_en_cours = db.scalars(select(TacheIA).where(
         TacheIA.mission_id == m.id, TacheIA.etat.in_(("EN_ATTENTE", "EN_COURS")))).all()
+    derniere = db.scalar(select(TacheIA).where(TacheIA.mission_id == m.id)
+                         .order_by(TacheIA.id.desc()).limit(1))
     v = svc.version_courante(m)
     porte = next((p for p, (attente, _) in PORTES.items() if attente == m.statut), None)
     return {
@@ -102,6 +104,9 @@ def detail(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
                           "nom": p.utilisateur.nom} for p in m.participants],
         "versions": [_version(db, x) for x in m.versions],
         "taches_en_cours": [t.id for t in taches_en_cours],
+        "derniere_tache": ({"id": derniere.id, "type": derniere.type, "etat": derniere.etat,
+                            "erreur": derniere.erreur, "termine_le": derniere.termine_le}
+                           if derniere else None),
         "porte_en_attente": porte,
         "bloquants_porte": svc.bloquants_porte(db, porte, v)[1] if porte else [],
     }

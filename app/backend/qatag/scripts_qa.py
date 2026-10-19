@@ -40,9 +40,11 @@ def analyser_rapport_revue(rapport: str, texte_sfd: str) -> dict:
     1 = citations absentes du texte, 2 = rapport mal formé.
     """
     cr = _module("controler_revue")
+    rapport, corrections = normaliser_rapport_revue(rapport)
     defs, statut, erreurs = cr.parser_rapport(rapport)
     if erreurs:
-        return {"code": 2, "erreurs": erreurs, "statut": statut, "defauts": []}
+        return {"code": 2, "erreurs": erreurs, "corrections": corrections, "statut": statut,
+                "defauts": []}
     absentes = set(cr.verifier_citations(defs, texte_sfd))
 
     # Le script ne lit pas les questions : on les rattache à leur DEF ici.
@@ -64,7 +66,29 @@ def analyser_rapport_revue(rapport: str, texte_sfd: str) -> dict:
     } for d in defs]
     return {"code": 1 if absentes else 0,
             "erreurs": ["Citation absente du texte : %s" % c for c in sorted(absentes)],
-            "statut": statut, "defauts": defauts}
+            "corrections": corrections, "statut": statut, "defauts": defauts}
+
+
+def normaliser_rapport_revue(rapport: str) -> tuple[str, list[str]]:
+    """Ajoute les sections dont l'absence ne change pas le fond du rapport.
+
+    - « ## Alerte sécurité » : sans alerte, l'IA omet souvent la section ;
+      on l'ajoute vide (« Aucune »).
+    - « ## Statut du livrable » manquant : on ajoute A_CLARIFIER, le statut
+      le plus prudent (repris de l'ancienne app Streamlit).
+    Les sections de fond (Inventaire, Défauts) ne sont jamais inventées :
+    leur absence reste une erreur. Chaque ajout est tracé.
+    """
+    corrections = []
+    if "## Alerte sécurité" not in rapport:
+        ancre = rapport.find("## Inventaire REQ et BR")
+        bloc = "## Alerte sécurité\nAucune\n\n"
+        rapport = rapport[:ancre] + bloc + rapport[ancre:] if ancre >= 0 else bloc + rapport
+        corrections.append("section « Alerte sécurité » absente : ajoutée vide")
+    if not re.search(r"^##\s+Statut du livrable\s*$", rapport, re.MULTILINE):
+        rapport = rapport.rstrip() + "\n\n## Statut du livrable\nA_CLARIFIER\n"
+        corrections.append("statut du livrable absent : A_CLARIFIER ajouté")
+    return rapport, corrections
 
 
 def verifier_reecriture(origine: str, rapport: str, questions_repondues: list[str]) -> dict:

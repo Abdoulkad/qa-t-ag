@@ -96,7 +96,8 @@ def _analyser(db: Session, tache: TacheIA) -> None:
     version.modele_ia = config.modele
     version.rapport_revue = rapport
     version.code_controle_revue = controle["code"]
-    version.controle_revue = "\n".join(controle["erreurs"]) or "Citations toutes vérifiées"
+    version.controle_revue = "\n".join(controle["corrections"] + controle["erreurs"]) \
+        or "Citations toutes vérifiées"
     version.score_clarte = regles.score_clarte([d["gravite"] for d in controle["defauts"]])
 
     n = 0
