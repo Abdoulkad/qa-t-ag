@@ -43,6 +43,17 @@ export default function Porte({ mission: m, recharger }: {
             <ul className="bloquants">{m.bloquants_porte.map((b) => <li key={b}>{b}</li>)}</ul>
           </div>
         )}
+        {porte === "PV-1" && (courante.points_ouverts.length > 0 || courante.questions.some((q) => q.decision)) && (
+          <div className="message-info">
+            <strong>À savoir avant de décider</strong>
+            {courante.points_ouverts.length > 0 && (
+              <div>{courante.points_ouverts.length} point(s) ouvert(s), non couvert(s) par les critères.</div>
+            )}
+            {courante.questions.filter((q) => q.decision).map((q) => (
+              <div key={q.id}>{q.code} : {q.decision === "HORS_PERIMETRE" ? "hors périmètre" : "reportée"} — « {q.motif_decision} »</div>
+            ))}
+          </div>
+        )}
         {!peutDecider && (
           <div className="message-info">
             {seul ? "Seul le participant de la mission peut décider."

@@ -95,7 +95,8 @@ def verifier_reecriture(origine: str, rapport: str, questions_repondues: list[st
     """RA-19, RA-20 : verifier_reecriture.py tranche SOURCE / HYPOTHESE."""
     vr = _module("verifier_reecriture")
     code, texte, criteres, erreurs = vr.verifier(origine, rapport, questions_repondues)
-    return {"code": code, "texte": texte, "criteres": criteres, "erreurs": erreurs}
+    return {"code": code, "texte": texte, "criteres": criteres, "erreurs": erreurs,
+            "points": vr.extraire_points_ouverts(rapport) if code != 2 else []}
 
 
 EN_TETE_CAS = ["ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",

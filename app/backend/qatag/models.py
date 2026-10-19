@@ -109,6 +109,7 @@ class VersionExigence(Base):
     code_controle_revue: Mapped[int | None] = mapped_column(Integer)
     score_clarte: Mapped[int | None] = mapped_column(Integer)
     texte_reecrit: Mapped[str | None] = mapped_column(Text)
+    points_ouverts: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     controle_reecriture: Mapped[str | None] = mapped_column(Text)
     controle_conception: Mapped[str | None] = mapped_column(Text)
     figee: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -146,6 +147,14 @@ class QuestionMetier(Base):
     reponse: Mapped[str | None] = mapped_column(Text)
     repondu_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
     repondu_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # RA-42 : à défaut de réponse, une décision humaine motivée
+    decision: Mapped[str | None] = mapped_column(String(20))
+    motif_decision: Mapped[str | None] = mapped_column(Text)
+    decide_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    decide_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint(
+        "decision IS NULL OR decision IN ('HORS_PERIMETRE', 'REPORTEE')",
+        name="ck_question_decision"),)
 
 
 class CritereAcceptation(Base):

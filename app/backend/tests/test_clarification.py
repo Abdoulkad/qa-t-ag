@@ -37,7 +37,7 @@ def test_reecriture_refusee_si_question_bloquante_sans_reponse(client, admin, ia
     mid = _mission(client, admin)
     r = client.post("/api/missions/%d/reecriture" % mid, headers=admin)
     assert r.status_code == 409 and r.json()["regle"] == "RA-21"
-    assert r.json()["elements"] == ["Q-1 : question bloquante sans réponse"]
+    assert r.json()["elements"] == ["Q-1 : question bloquante non traitée"]
 
 
 def test_reecriture_sources_verifiees_par_script(client, admin, ia):

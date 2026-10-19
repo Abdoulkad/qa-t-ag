@@ -189,6 +189,8 @@ def repondre(db: Session, u: Utilisateur, m: Mission, question_id: int,
     q.reponse = reponse or None
     q.repondu_par_id = u.id if reponse else None
     q.repondu_le = maintenant() if reponse else None
+    if reponse:                    # une réponse remplace une décision antérieure
+        q.decision = q.motif_decision = q.decide_par_id = q.decide_le = None
     journal.ajouter(db, m.organisation_id, "question_repondue", mission_id=m.id, acteur_id=u.id,
                     details={"question": q.code, "reponse": reponse})
     db.commit()
@@ -216,10 +218,12 @@ def lancer_reecriture(db: Session, u: Utilisateur, m: Mission):
     v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "La réécriture")
     if taches.en_cours(db, m.id):
         raise RegleViolee("RA-39", "Une tâche IA est déjà en cours sur cette mission")
-    sans_reponse = [q.code for q in v.questions if q.bloquante and not (q.reponse or "").strip()]
+    sans_reponse = [q.code for q in v.questions if q.bloquante and not q.decision
+                    and not (q.reponse or "").strip()]
     if sans_reponse:                                                            # RA-21
-        raise RegleViolee("RA-21", "Répondez d'abord aux questions bloquantes",
-                          ["%s : question bloquante sans réponse" % c for c in sans_reponse])
+        raise RegleViolee("RA-21", "Traitez d'abord les questions bloquantes : répondez-y, "
+                                   "ou déclarez-les hors périmètre ou reportées",
+                          ["%s : question bloquante non traitée" % c for c in sans_reponse])
     regles.verifier_transition(m.statut, "REECRITURE")
     m.statut = "REECRITURE"
     journal.ajouter(db, m.organisation_id, "reecriture_lancee", mission_id=m.id, acteur_id=u.id,
@@ -228,19 +232,60 @@ def lancer_reecriture(db: Session, u: Utilisateur, m: Mission):
     return taches.lancer(db, m, v, "REECRITURE")
 
 
-def ecarter_critere(db: Session, u: Utilisateur, m: Mission, critere_id: int, motif: str) -> None:
-    """L'humain écarte un critère (souvent une hypothèse) : décision motivée et journalisée."""
+def ecarter_criteres(db: Session, u: Utilisateur, m: Mission, ids: list[int],
+                     motif: str) -> int:
+    """L'humain écarte un ou plusieurs critères (souvent des hypothèses), avec un
+    motif commun ; le journal garde une ligne par critère (RA-44)."""
     v = _version_modifiable(m, ("ATTENTE_PV1",), "Écarter un critère")
-    c = db.get(CritereAcceptation, critere_id)
-    if c is None or c.version_id != v.id:
-        raise RegleViolee("RA-05", "Critère introuvable sur la version courante")
     if not (motif or "").strip():
         raise RegleViolee("RA-20", "Écarter un critère doit être motivé")
-    journal.ajouter(db, m.organisation_id, "critere_ecarte", mission_id=m.id, acteur_id=u.id,
-                    details={"critere": c.code, "texte": c.texte, "statut": c.statut,
-                             "motif": motif.strip()})
-    db.delete(c)
+    criteres = [db.get(CritereAcceptation, i) for i in dict.fromkeys(ids)]
+    if not criteres or any(c is None or c.version_id != v.id for c in criteres):
+        raise RegleViolee("RA-05", "Critère introuvable sur la version courante")
+    for c in criteres:
+        journal.ajouter(db, m.organisation_id, "critere_ecarte", mission_id=m.id,
+                        acteur_id=u.id, details={"critere": c.code, "texte": c.texte,
+                                                 "statut": c.statut, "motif": motif.strip()})
+        db.delete(c)
     db.commit()
+    return len(criteres)
+
+
+def ecarter_critere(db: Session, u: Utilisateur, m: Mission, critere_id: int, motif: str) -> None:
+    ecarter_criteres(db, u, m, [critere_id], motif)
+
+
+DECISIONS_QUESTION = {"HORS_PERIMETRE": "hors périmètre", "REPORTEE": "reportée"}
+
+
+def decider_questions(db: Session, u: Utilisateur, m: Mission, ids: list[int],
+                      decision: str | None, motif: str) -> int:
+    """RA-42 : à défaut de réponse, l'humain déclare une question hors périmètre ou
+    reportée, avec un motif. `decision=None` annule la décision. Groupable (RA-44)."""
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "Décider d'une question")
+    if decision is not None and decision not in DECISIONS_QUESTION:
+        raise RegleViolee("RA-42", "Décision inconnue : %s" % decision)
+    if decision and not (motif or "").strip():
+        raise RegleViolee("RA-42", "Une décision sur une question doit être motivée")
+    questions = [db.get(QuestionMetier, i) for i in dict.fromkeys(ids)]
+    if not questions or any(q is None or q.version_id != v.id for q in questions):
+        raise RegleViolee("RA-05", "Question introuvable sur la version courante")
+    repondues = [q.code for q in questions if decision and (q.reponse or "").strip()]
+    if repondues:
+        raise RegleViolee("RA-42", "Ces questions ont déjà une réponse : effacez-la d'abord",
+                          ["%s : déjà répondue" % c for c in repondues])
+    for q in questions:
+        q.decision = decision
+        q.motif_decision = motif.strip() if decision else None
+        q.decide_par_id = u.id if decision else None
+        q.decide_le = maintenant() if decision else None
+        journal.ajouter(db, m.organisation_id,
+                        "question_decidee" if decision else "decision_question_annulee",
+                        mission_id=m.id, acteur_id=u.id,
+                        details={"question": q.code, "decision": decision,
+                                 "motif": q.motif_decision})
+    db.commit()
+    return len(questions)
 
 
 def relancer(db: Session, u: Utilisateur, m: Mission):

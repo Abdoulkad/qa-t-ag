@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, type Critere, type Mission, type Question, type Version } from "../../api";
 import { MessageErreur, Pastille, useAction } from "../../composants";
-import { date } from "../../libelles";
+import { date, DECISION_QUESTION } from "../../libelles";
 
 interface Props {
   mission: Mission;
@@ -19,7 +19,13 @@ function couleurScore(s: number) {
 export default function Exigence({ mission: m, version: v, modifiable, recharger, lancerTache, occupe }: Props) {
   const clarification = modifiable && !v.figee && (m.statut === "CLARIFICATION" || m.statut === "ATTENTE_PV1");
   const reecriture = useAction();
-  const bloquantesSansReponse = v.questions.filter((q) => q.bloquante && !q.reponse);
+  const bloquantesSansReponse = v.questions.filter((q) => q.bloquante && !q.reponse && !q.decision);
+  const [selQuestions, setSelQuestions] = useState<number[]>([]);
+  const [selCriteres, setSelCriteres] = useState<number[]>([]);
+  const basculer = (liste: number[], fixer: (l: number[]) => void, id: number) =>
+    fixer(liste.includes(id) ? liste.filter((x) => x !== id) : [...liste, id]);
+  const ecartable = modifiable && !v.figee && m.statut === "ATTENTE_PV1";
+  const sansReponse = v.questions.filter((q) => !q.reponse);
 
   if (m.statut === "ANALYSE_EN_COURS" && !v.defauts.length) {
     return <div className="vide">L'analyse est en cours. Les défauts et les questions apparaîtront ici.</div>;
@@ -76,10 +82,32 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
             </p>
           </div>
         </div>
+        {clarification && selQuestions.length > 0 && (
+          <BarreDecision nombre={selQuestions.length} objet="question" options={[
+            { valeur: "HORS_PERIMETRE", libelle: "Déclarer hors périmètre" },
+            { valeur: "REPORTEE", libelle: "Reporter" }]}
+            appliquer={async (decision, motif) => {
+              await api(`/missions/${m.id}/questions-decision`,
+                { methode: "PUT", corps: { ids: selQuestions, decision, motif } });
+              setSelQuestions([]); recharger();
+            }} annuler={() => setSelQuestions([])} />
+        )}
         <div className="panneau">
           {v.questions.length === 0 && <div className="vide">Aucune question.</div>}
+          {clarification && sansReponse.length > 1 && (
+            <div className="question" style={{ padding: "8px 18px" }}>
+              <label className="rangee discret-texte" style={{ gap: 8 }}>
+                <input type="checkbox"
+                       checked={sansReponse.every((q) => selQuestions.includes(q.id))}
+                       onChange={(e) => setSelQuestions(e.target.checked ? sansReponse.map((q) => q.id) : [])} />
+                Sélectionner les {sansReponse.length} questions sans réponse
+              </label>
+            </div>
+          )}
           {v.questions.map((q) => (
-            <QuestionLigne key={q.id} q={q} missionId={m.id} modifiable={clarification} recharger={recharger} />
+            <QuestionLigne key={q.id} q={q} missionId={m.id} modifiable={clarification} recharger={recharger}
+                           selectionnee={selQuestions.includes(q.id)}
+                           basculer={() => basculer(selQuestions, setSelQuestions, q.id)} />
           ))}
           {clarification && <Precision missionId={m.id} recharger={recharger} />}
         </div>
@@ -87,7 +115,8 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
           <div className="pile" style={{ marginTop: 12, gap: 8 }}>
             {bloquantesSansReponse.length > 0 && (
               <p className="discret-texte">
-                Répondez aux questions bloquantes ({bloquantesSansReponse.map((q) => q.code).join(", ")}) pour lancer la réécriture.
+                Traitez les questions bloquantes ({bloquantesSansReponse.map((q) => q.code).join(", ")}) pour lancer
+                la réécriture : répondez-y, ou déclarez-les hors périmètre ou reportées.
               </p>
             )}
             <MessageErreur erreur={reecriture.erreur} />
@@ -120,12 +149,46 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
             </div>
           </div>
           <h3 style={{ margin: "18px 0 8px" }}>Critères d'acceptation</h3>
+          {ecartable && selCriteres.length > 0 && (
+            <BarreDecision nombre={selCriteres.length} objet="critère"
+              options={[{ valeur: "ECARTER", libelle: "Écarter" }]}
+              appliquer={async (_d, motif) => {
+                await api(`/missions/${m.id}/criteres`, { methode: "DELETE", corps: { ids: selCriteres, motif } });
+                setSelCriteres([]); recharger();
+              }} annuler={() => setSelCriteres([])} />
+          )}
           <div className="panneau">
+            {ecartable && v.criteres.filter((c) => c.statut === "HYPOTHESE").length > 1 && (
+              <div className="critere" style={{ padding: "8px 18px" }}>
+                <label className="rangee discret-texte" style={{ gap: 8 }}>
+                  <input type="checkbox"
+                         checked={v.criteres.filter((c) => c.statut === "HYPOTHESE").every((c) => selCriteres.includes(c.id))}
+                         onChange={(e) => setSelCriteres(e.target.checked
+                           ? v.criteres.filter((c) => c.statut === "HYPOTHESE").map((c) => c.id) : [])} />
+                  Sélectionner toutes les hypothèses
+                </label>
+              </div>
+            )}
             {v.criteres.map((c) => (
-              <CritereLigne key={c.id} c={c} missionId={m.id}
-                            ecartable={modifiable && !v.figee && m.statut === "ATTENTE_PV1"} recharger={recharger} />
+              <CritereLigne key={c.id} c={c} missionId={m.id} ecartable={ecartable} recharger={recharger}
+                            selectionne={selCriteres.includes(c.id)}
+                            basculer={() => basculer(selCriteres, setSelCriteres, c.id)} />
             ))}
           </div>
+          {v.points_ouverts.length > 0 && (
+            <>
+              <h3 style={{ margin: "18px 0 4px" }}>Points ouverts</h3>
+              <p className="discret-texte" style={{ marginBottom: 8 }}>
+                Sujets que l'agent n'a pas transformés en critères, faute de source. Ils ne bloquent pas PV-1 :
+                le valideur les voit au moment de décider, et ils restent hors des cas de test.
+              </p>
+              <div className="panneau">
+                <ul style={{ margin: 0, padding: "12px 18px 12px 34px" }}>
+                  {v.points_ouverts.map((p) => <li key={p}>{p}</li>)}
+                </ul>
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -140,21 +203,44 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
   );
 }
 
-function QuestionLigne({ q, missionId, modifiable, recharger }: {
+function QuestionLigne({ q, missionId, modifiable, recharger, selectionnee, basculer }: {
   q: Question; missionId: number; modifiable: boolean; recharger: () => void;
+  selectionnee: boolean; basculer: () => void;
 }) {
   const [reponse, setReponse] = useState(q.reponse ?? "");
+  const [decider, setDecider] = useState<"HORS_PERIMETRE" | "REPORTEE" | null>(null);
+  const [motif, setMotif] = useState("");
   const action = useAction();
   const change = reponse.trim() !== (q.reponse ?? "");
+  const appliquer = (decision: string | null, m: string) => action.lancer(async () => {
+    await api(`/missions/${missionId}/questions-decision`,
+      { methode: "PUT", corps: { ids: [q.id], decision, motif: m } });
+    setDecider(null); setMotif(""); recharger();
+  });
   return (
     <div className="question">
       <div className="question-texte">
+        {modifiable && !q.reponse && (
+          <input type="checkbox" checked={selectionnee} onChange={basculer} aria-label={"Sélectionner " + q.code} />
+        )}
         <span className="ref">{q.code}</span>
         <span style={{ flex: 1 }}>{q.question}</span>
         {q.bloquante && <Pastille ton="alerte">Bloquante</Pastille>}
         {q.ajoutee_par_humain && <Pastille ton="neutre">Précision ajoutée</Pastille>}
+        {q.decision && <Pastille ton="attente">{DECISION_QUESTION[q.decision]}</Pastille>}
       </div>
-      {modifiable ? (
+      {q.decision ? (
+        <div className="rangee">
+          <span className="discret-texte">
+            {DECISION_QUESTION[q.decision]} le {date(q.decide_le)} : « {q.motif_decision} »
+          </span>
+          {modifiable && (
+            <button className="bouton discret petit" disabled={action.enCours}
+                    onClick={() => appliquer(null, "")}>Annuler la décision</button>
+          )}
+          <MessageErreur erreur={action.erreur} />
+        </div>
+      ) : modifiable ? (
         <>
           <textarea rows={2} value={reponse} onChange={(e) => setReponse(e.target.value)}
                     placeholder="Votre réponse (ou celle du Product Owner)" aria-label={"Réponse à " + q.code} />
@@ -165,12 +251,51 @@ function QuestionLigne({ q, missionId, modifiable, recharger }: {
                       recharger();
                     })}>Enregistrer la réponse</button>
             {q.repondu_le && !change && <span className="discret-texte">Répondu le {date(q.repondu_le)}</span>}
+            {!q.reponse && !decider && <>
+              <button className="bouton discret petit" onClick={() => setDecider("HORS_PERIMETRE")}>Hors périmètre</button>
+              <button className="bouton discret petit" onClick={() => setDecider("REPORTEE")}>Reporter</button>
+            </>}
           </div>
+          {decider && (
+            <div className="rangee">
+              <input type="text" value={motif} onChange={(e) => setMotif(e.target.value)} style={{ flex: 1, minWidth: 200 }}
+                     placeholder={decider === "HORS_PERIMETRE" ? "Pourquoi est-ce hors périmètre ?" : "Pourquoi reporter ? (ex. en attente du PO)"}
+                     aria-label={"Motif pour " + q.code} />
+              <button className="bouton petit" disabled={!motif.trim() || action.enCours}
+                      onClick={() => appliquer(decider, motif)}>{DECISION_QUESTION[decider]}</button>
+              <button className="bouton discret petit" onClick={() => setDecider(null)}>Annuler</button>
+            </div>
+          )}
           <MessageErreur erreur={action.erreur} />
         </>
       ) : (
         <div className={q.reponse ? "" : "discret-texte"}>{q.reponse ?? "Sans réponse"}</div>
       )}
+    </div>
+  );
+}
+
+/** Barre d'action groupée : une décision et un motif communs, une ligne de journal par élément. */
+function BarreDecision({ nombre, objet, options, appliquer, annuler }: {
+  nombre: number; objet: string; options: { valeur: string; libelle: string }[];
+  appliquer: (decision: string, motif: string) => Promise<void>; annuler: () => void;
+}) {
+  const [motif, setMotif] = useState("");
+  const action = useAction();
+  return (
+    <div className="message-info pile" style={{ gap: 8, marginBottom: 10 }}>
+      <strong>{nombre} {objet}{nombre > 1 ? "s" : ""} sélectionné{objet === "question" ? "e" : ""}{nombre > 1 ? "s" : ""}</strong>
+      <div className="rangee">
+        <input type="text" value={motif} onChange={(e) => setMotif(e.target.value)} style={{ flex: 1, minWidth: 220 }}
+               placeholder="Motif commun (obligatoire)" aria-label="Motif commun" />
+        {options.map((o) => (
+          <button key={o.valeur} className="bouton petit" disabled={!motif.trim() || action.enCours}
+                  onClick={() => action.lancer(() => appliquer(o.valeur, motif))}>{o.libelle}</button>
+        ))}
+        <button className="bouton discret petit" onClick={annuler}>Tout désélectionner</button>
+      </div>
+      <span className="discret-texte">Chaque élément garde sa propre ligne dans le journal QA.</span>
+      <MessageErreur erreur={action.erreur} />
     </div>
   );
 }
@@ -212,8 +337,9 @@ function Precision({ missionId, recharger }: { missionId: number; recharger: () 
   );
 }
 
-function CritereLigne({ c, missionId, ecartable, recharger }: {
+function CritereLigne({ c, missionId, ecartable, recharger, selectionne, basculer }: {
   c: Critere; missionId: number; ecartable: boolean; recharger: () => void;
+  selectionne: boolean; basculer: () => void;
 }) {
   const [ecarter, setEcarter] = useState(false);
   const [motif, setMotif] = useState("");
@@ -221,6 +347,7 @@ function CritereLigne({ c, missionId, ecartable, recharger }: {
   return (
     <div className={"critere" + (c.statut === "HYPOTHESE" ? " hypothese" : "")}>
       <div className="rangee" style={{ alignItems: "baseline" }}>
+        {ecartable && <input type="checkbox" checked={selectionne} onChange={basculer} aria-label={"Sélectionner " + c.code} />}
         <span className="ref">{c.code}</span>
         <span style={{ flex: 1 }}>{c.texte}</span>
         {c.statut === "HYPOTHESE"

@@ -11,8 +11,9 @@ from ..extraction import FichierRefuse, extraire
 from ..models import (CasTest, DecisionPorte, EntreeJournal, Execution, Mission, TacheIA, Trace,
                       Utilisateur, VersionExigence)
 from ..regles import PORTES
-from .schemas import (AjoutParticipant, CreationMission, Decision, EcartCritere,
-                      ModificationCas, NouvelleVersion, Precision, Reponse)
+from .schemas import (AjoutParticipant, CreationMission, Decision, DecisionQuestions,
+                      EcartCritere, EcartCriteres, ModificationCas, NouvelleVersion, Precision,
+                      Reponse)
 
 routeur = APIRouter(prefix="/api", tags=["Missions"])
 
@@ -46,9 +47,12 @@ def _version(db: Session, v: VersionExigence) -> dict:
         "questions": [{"id": q.id, "code": q.code, "defaut_id": q.defaut_id,
                        "question": q.question, "bloquante": q.bloquante, "reponse": q.reponse,
                        "ajoutee_par_humain": q.ajoutee_par_id is not None,
+                       "decision": q.decision, "motif_decision": q.motif_decision,
+                       "decide_le": q.decide_le,
                        "repondu_par_id": q.repondu_par_id, "repondu_le": q.repondu_le}
                       for q in v.questions],
         "texte_reecrit": v.texte_reecrit, "controle_reecriture": v.controle_reecriture,
+        "points_ouverts": v.points_ouverts or [],
         "controle_conception": v.controle_conception,
         "criteres": [{"id": c.id, "code": c.code, "texte": c.texte, "sources": c.sources,
                       "sources_rejetees": c.sources_rejetees, "statut": c.statut}
@@ -218,6 +222,21 @@ def reecrire(mission_id: int, u: Utilisateur = Depends(acteur_mission),
              db: Session = Depends(session_db)):
     t = svc.lancer_reecriture(db, u, _mission(db, u, mission_id))
     return {"tache_id": t.id}
+
+
+@routeur.put("/missions/{mission_id}/questions-decision")
+def decider_questions(mission_id: int, entree: DecisionQuestions,
+                      u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    n = svc.decider_questions(db, u, _mission(db, u, mission_id), entree.ids, entree.decision,
+                              entree.motif)
+    return {"questions": n}
+
+
+@routeur.delete("/missions/{mission_id}/criteres")
+def ecarter_criteres(mission_id: int, entree: EcartCriteres,
+                     u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    n = svc.ecarter_criteres(db, u, _mission(db, u, mission_id), entree.ids, entree.motif)
+    return {"ecartes": n}
 
 
 @routeur.delete("/missions/{mission_id}/criteres/{critere_id}")

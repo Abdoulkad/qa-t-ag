@@ -35,10 +35,19 @@ def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]
     repondues = [q for q in questions if (q["reponse"] or "").strip()]
     lignes += ["- %s — Question : %s\n  Réponse : %s" % (q["code"], q["question"], q["reponse"])
                for q in repondues] or ["- aucune réponse"]
-    sans = [q for q in questions if not (q["reponse"] or "").strip()]
-    if sans:
-        lignes += ["", "## Questions restées sans réponse (NE SONT PAS des sources)"]
-        lignes += ["- %s — %s" % (q["code"], q["question"]) for q in sans]
+    hors = [q for q in questions if q.get("decision") == "HORS_PERIMETRE"]
+    if hors:
+        lignes += ["", "## Questions déclarées HORS PÉRIMÈTRE par l'humain "
+                       "(n'écris rien à leur sujet, ni critère ni point ouvert)"]
+        lignes += ["- %s — %s" % (q["code"], q["question"]) for q in hors]
+    ouvertes = [q for q in questions if not (q["reponse"] or "").strip()
+                and q.get("decision") != "HORS_PERIMETRE"]
+    if ouvertes:
+        lignes += ["", "## Questions sans réponse ou reportées (PAS des sources : "
+                       "aucun critère dessus, range chaque sujet dans « ## Points ouverts »)"]
+        lignes += ["- %s — %s%s" % (q["code"], q["question"],
+                                    " (reportée)" if q.get("decision") == "REPORTEE" else "")
+                   for q in ouvertes]
     lignes += ["", "Réécris l'exigence en respectant EXACTEMENT ce format, sans rien avant ni "
                    "après, sans bloc de code. N'invente aucune règle métier.", "",
                "## Exigence réécrite",
@@ -49,7 +58,10 @@ def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]
                "- **Sources** : « passage exact de l'exigence d'origine » ; Q-1",
                "### CA-02",
                "- **Critère** : …",
-               "- **Sources** : Q-2"]
+               "- **Sources** : Q-2", "",
+               "## Points ouverts",
+               "- <sujet sans source, donc pas un critère> (Q-3)", "",
+               "(La section « Points ouverts » est facultative.)"]
     return "\n".join(lignes)
 
 

@@ -42,6 +42,8 @@ export const EVENEMENTS: Record<string, string> = {
   analyse_echec: "Analyse en échec",
   question_repondue: "Réponse enregistrée",
   precision_ajoutee: "Précision ajoutée",
+  question_decidee: "Décision sur une question",
+  decision_question_annulee: "Décision annulée",
   reecriture_lancee: "Réécriture lancée",
   reecriture_terminee: "Réécriture terminée",
   reecriture_echec: "Réécriture en échec",
@@ -51,6 +53,11 @@ export const EVENEMENTS: Record<string, string> = {
   conception_echec: "Conception en échec",
   cas_modifie: "Cas corrigé",
   tache_relancee: "Agent relancé",
+};
+
+export const DECISION_QUESTION: Record<string, string> = {
+  HORS_PERIMETRE: "Hors périmètre",
+  REPORTEE: "Reportée",
 };
 
 export function date(iso: string | null | undefined): string {

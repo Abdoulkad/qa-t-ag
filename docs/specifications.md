@@ -111,11 +111,26 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
 - **RA-20** Un critère sans source vérifiable est marqué `HYPOTHESE`. PV-1 est
   refusé tant qu'il reste une hypothèse : l'IA n'invente pas de règle métier.
 - **RA-21** La réécriture n'est possible qu'une fois toutes les questions
-  bloquantes répondues.
+  bloquantes **traitées** : répondues, ou déclarées hors périmètre ou
+  reportées (RA-42).
 - Pour lever une hypothèse avant PV-1, l'humain peut : répondre à une question
   ou ajouter une **précision** (question + réponse, numérotée Q-n comme les
   autres) puis relancer la réécriture ; ou **écarter** le critère avec un
   motif obligatoire, inscrit au journal.
+- **RA-42** Une question sans réponse peut recevoir une **décision humaine
+  motivée** : `HORS_PERIMETRE` (l'agent n'écrit rien dessus) ou `REPORTEE`
+  (le sujet devient un point ouvert). Le motif est obligatoire ; l'auteur et la
+  date sont enregistrés. Une question déjà répondue ne peut pas être décidée ;
+  répondre plus tard à une question décidée annule la décision. Une question
+  décidée n'est **jamais** une source de critère (RA-19 reste entière).
+- **RA-43** La réécriture peut comporter une section « Points ouverts » : les
+  sujets non tranchés, sans source, qui ne deviennent pas des critères. Ils ne
+  bloquent pas PV-1 mais sont affichés au décideur avec les questions décidées
+  et leur motif, avant qu'il approuve.
+- **RA-44** Les décisions sur les questions et l'écart des critères peuvent être
+  faits **par lot**, avec un motif commun. Chaque élément garde sa propre ligne
+  dans le journal QA. Le lot est refusé en entier si un seul élément est
+  invalide.
 
 ## 6. Conception des cas de test (AG-02 à AG-05)
 
@@ -210,9 +225,9 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
 | `utilisateur` | E-mail, nom, hash du mot de passe, rôles, actif |
 | `mission` | Référence (M-001…), titre, statut, organisation, créateur |
 | `participant` | Mission ↔ utilisateur |
-| `version_exigence` | Texte, n° de version, empreinte, auteur, fournisseur et modèle IA, score de clarté |
+| `version_exigence` | Texte, n° de version, empreinte, auteur, fournisseur et modèle IA, score de clarté, texte réécrit, points ouverts |
 | `defaut` | DEF-xx : catégorie, gravité, citation, description (AG-01) |
-| `question_metier` | Question, réponse, auteur et date de la réponse, bloquante |
+| `question_metier` | Question, réponse, auteur et date de la réponse, bloquante, décision (`HORS_PERIMETRE` / `REPORTEE`), motif, auteur et date de la décision |
 | `critere_acceptation` | Texte, sources, statut (`SOURCE` / `HYPOTHESE`) |
 | `cas_test` | Les 12 colonnes du CSV + justification de technique + statut |
 | `trace` | Cas ↔ exigence ou critère |
@@ -240,6 +255,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-36 à RA-39 | `test_ia.py` | 1 |
 | RA-18 à RA-21 | `test_clarification.py` | 2 |
 | RA-22 à RA-26, RA-41 | `test_conception.py` | 2 |
+| RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

@@ -112,6 +112,8 @@ export interface Defaut {
 export interface Question {
   id: number; code: string; defaut_id: number | null; question: string; bloquante: boolean;
   reponse: string | null; ajoutee_par_humain: boolean; repondu_le: string | null;
+  decision: "HORS_PERIMETRE" | "REPORTEE" | null; motif_decision: string | null;
+  decide_le: string | null;
 }
 
 export interface Critere {
@@ -130,7 +132,8 @@ export interface Version {
   score_clarte: number | null; controle_revue: string | null; code_controle_revue: number | null;
   defauts: Defaut[]; questions: Question[]; decisions: DecisionPorte[];
   texte_reecrit: string | null; controle_reecriture: string | null;
-  controle_conception: string | null; criteres: Critere[]; cree_le: string;
+  controle_conception: string | null; criteres: Critere[]; points_ouverts: string[];
+  cree_le: string;
 }
 
 export interface Mission extends ResumeMission {

@@ -28,7 +28,10 @@ même et laisse ses sources vides : le script de contrôle le marquera
 `HYPOTHESE` et l'humain tranchera. Ne maquille jamais une hypothèse en
 citant une source qui ne la dit pas.
 
-Une question restée sans réponse n'est pas une source.
+Une question restée sans réponse n'est pas une source. Ne bâtis **pas** de
+critère dessus : range le sujet dans la section « ## Points ouverts » (voir
+le format). Une question déclarée **hors périmètre** par l'humain ne donne
+lieu à rien. Une question **reportée** va dans les points ouverts.
 
 ## Qualité des critères
 
@@ -53,6 +56,11 @@ Rien avant, rien après :
 ### CA-02
 - **Critère** : …
 - **Sources** : Q-1
+
+## Points ouverts
+- <sujet non tranché, sans source, qui n'est donc pas un critère> (Q-3)
 ```
+
+La section « Points ouverts » est facultative : omets-la s'il n'y en a pas.
 
 Numérote les critères CA-01, CA-02… sans trou.

@@ -40,6 +40,10 @@ RE_SECTION_EXIGENCE = re.compile(
     re.MULTILINE | re.IGNORECASE)
 RE_SECTION_CRITERES = re.compile(
     _TITRE + r"crit[èe]res\s+d['’]\s*acceptation" + _FIN, re.MULTILINE | re.IGNORECASE)
+RE_SECTION_POINTS = re.compile(
+    _TITRE + r"points\s+(?:ouverts|en\s+suspens|non\s+r[ée]solus)" + _FIN,
+    re.MULTILINE | re.IGNORECASE)
+RE_POINT = re.compile(r"^\s*[-*]\s+(.+?)\s*$")
 RE_CA = re.compile(r"^\s*(?:#{2,4}\s*|[-*]\s*)?\**\s*(CA-\d{2,3})\b\**\s*(?:[:—–-].*)?$")
 RE_CRITERE = re.compile(r"^\s*[-*]?\s*\**\s*Crit[èe]re\s*\**\s*:\s*\**\s*(.+?)\s*$",
                         re.IGNORECASE)
@@ -70,8 +74,10 @@ def parser(rapport):
     if not texte:
         erreurs.append("exigence réécrite vide")
 
+    m_po = RE_SECTION_POINTS.search(rapport, m_ca.end())
+    fin_criteres = m_po.start() if m_po else len(rapport)
     criteres, courant = [], None
-    for ligne in rapport[m_ca.end():].splitlines():
+    for ligne in rapport[m_ca.end():fin_criteres].splitlines():
         m = RE_CA.match(ligne)
         if m:
             courant = {"code": m.group(1), "texte": None, "sources_brutes": ""}
@@ -95,6 +101,23 @@ def parser(rapport):
     if doublons:
         erreurs.append("codes dupliqués : %s" % ", ".join(doublons))
     return texte, criteres, erreurs
+
+
+def extraire_points_ouverts(rapport):
+    """Section facultative « ## Points ouverts » : ce que l'IA n'a PAS transformé
+    en critère, faute de source. Ces points ne bloquent pas PV-1 mais sont
+    montrés au valideur (RA-43)."""
+    m_po = RE_SECTION_POINTS.search(rapport)
+    if not m_po:
+        return []
+    points = []
+    for ligne in rapport[m_po.end():].splitlines():
+        if re.match(r"^\s*#", ligne):
+            break
+        m = RE_POINT.match(ligne)
+        if m and m.group(1).strip().lower() not in ("aucun", "aucun.", "néant"):
+            points.append(m.group(1).strip())
+    return points
 
 
 def verifier(origine, rapport, questions_repondues):
@@ -166,6 +189,12 @@ En tant qu'utilisateur, je réinitialise mon mot de passe.
     code, texte, cas, err = verifier(origine, variante, ["Q-1"])
     if code != 0 or len(cas) != 1 or cas[0]["statut"] != "SOURCE":
         echecs.append(("format tolérant", code, err, cas))
+    avec_points = variante + "\n## Points ouverts\n- Notification après succès non précisée (Q-3)\n"
+    code, _, cas, _ = verifier(origine, avec_points, ["Q-1"])
+    if code != 0 or len(cas) != 1:
+        echecs.append(("points ouverts hors critères", code, cas))
+    if extraire_points_ouverts(avec_points) != ["Notification après succès non précisée (Q-3)"]:
+        echecs.append(("points ouverts", extraire_points_ouverts(avec_points)))
     return echecs
 
 

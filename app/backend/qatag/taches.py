@@ -155,8 +155,8 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    questions = [{"code": q.code, "question": q.question, "reponse": q.reponse}
-                 for q in version.questions]
+    questions = [{"code": q.code, "question": q.question, "reponse": q.reponse,
+                  "decision": q.decision} for q in version.questions]
     defauts = [{"code": d.code, "categorie": d.categorie, "gravite": d.gravite,
                 "citation": d.citation} for d in version.defauts]
     repondues = [q["code"] for q in questions if (q["reponse"] or "").strip()]
@@ -175,6 +175,7 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
                                   sources=c["sources"], sources_rejetees=c["sources_rejetees"],
                                   statut=c["statut"]))
     version.texte_reecrit = controle["texte"]
+    version.points_ouverts = controle["points"]                        # RA-43
     hypotheses = [c["code"] for c in controle["criteres"] if c["statut"] == "HYPOTHESE"]
     version.controle_reecriture = (
         "Hypothèses à trancher : %s" % ", ".join(hypotheses) if hypotheses
@@ -184,7 +185,7 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
     mission.statut = "ATTENTE_PV1"
     journal.ajouter(db, mission.organisation_id, "reecriture_terminee", mission_id=mission.id,
                     details={"version": version.numero, "criteres": len(controle["criteres"]),
-                             "hypotheses": hypotheses,
+                             "hypotheses": hypotheses, "points_ouverts": len(controle["points"]),
                              "ia": "%s/%s" % (config.fournisseur, config.modele)})
 
 
