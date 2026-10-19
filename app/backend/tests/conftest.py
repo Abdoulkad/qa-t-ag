@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 os.environ["DATABASE_URL"] = os.environ.get(
@@ -129,9 +130,9 @@ class IAFactice:
 @pytest.fixture(scope="session", autouse=True)
 def schema():
     env = dict(os.environ)
-    subprocess.run(["alembic", "downgrade", "base"], cwd=BACKEND, env=env, check=True,
+    subprocess.run([sys.executable, "-m", "alembic", "downgrade", "base"], cwd=BACKEND, env=env, check=True,
                    capture_output=True)
-    subprocess.run(["alembic", "upgrade", "head"], cwd=BACKEND, env=env, check=True,
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=BACKEND, env=env, check=True,
                    capture_output=True)
     yield
 
