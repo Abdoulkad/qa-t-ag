@@ -3,3 +3,9 @@
 .interdits
 .venv/
 node_modules/
+
+# Application web (refonte)
+app/backend/.env
+app/donnees/
+__pycache__/
+.pytest_cache/
