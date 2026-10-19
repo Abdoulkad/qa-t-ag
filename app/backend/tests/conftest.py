@@ -1,5 +1,6 @@
 """Tests sur un vrai PostgreSQL (base qatag_test), sans appel IA réel."""
 import json
+import time
 import os
 import subprocess
 import sys
@@ -98,6 +99,9 @@ class IAFactice:
         self.reponses = {"revue": RAPPORT_IA, "reecriture": REECRITURE_IA,
                          "conception": CONCEPTION_IA}
         self.statut_http = 200
+        self.pauses = []
+        self.pannes = []      # exceptions httpx levées aux premiers appels
+        self.flux = False     # répondre en SSE (text/event-stream)
 
     @property
     def reponse(self):
@@ -115,15 +119,31 @@ class IAFactice:
             return "conception"
         return "revue"
 
+    @staticmethod
+    def _sse(texte, anthropic):
+        moities = [texte[:len(texte) // 2], texte[len(texte) // 2:]]
+        lignes = ["", ": keep-alive", ""]
+        for m in moities:
+            obj = ({"type": "content_block_delta", "delta": {"type": "text_delta", "text": m}}
+                   if anthropic else {"choices": [{"delta": {"content": m}}]})
+            lignes += ["data: " + json.dumps(obj), ""]
+        lignes += ["data: [DONE]", ""]
+        return "\n".join(lignes).encode()
+
     def __call__(self, requete: httpx.Request) -> httpx.Response:
         corps = json.loads(requete.content)
         self.appels.append({"url": str(requete.url), "entetes": dict(requete.headers),
                             "corps": corps})
+        if self.pannes:
+            raise self.pannes.pop(0)
         if self.statut_http != 200:
             return httpx.Response(self.statut_http, json={"error": "refus"})
         texte = self.reponses[self._agent(corps)]
         if isinstance(texte, list):          # réponses successives : la dernière se répète
             texte = texte.pop(0) if len(texte) > 1 else texte[0]
+        if self.flux:
+            return httpx.Response(200, headers={"content-type": "text/event-stream"},
+                                  content=self._sse(texte, "anthropic" in str(requete.url)))
         if "anthropic" in str(requete.url):
             return httpx.Response(200, json={"content": [{"type": "text", "text": texte}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": texte}}]})
@@ -156,8 +176,10 @@ def base_vide():
 def ia():
     faux = IAFactice()
     fournisseurs.transport_http = httpx.MockTransport(faux)
+    fournisseurs.attendre = faux.pauses.append     # pas d'attente réelle
     yield faux
     fournisseurs.transport_http = None
+    fournisseurs.attendre = time.sleep
 
 
 @pytest.fixture

@@ -219,6 +219,11 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
   utilisés.
 - **RA-39** Les appels IA s'exécutent en tâche de fond ; leur état
   (`EN_ATTENTE`, `EN_COURS`, `TERMINEE`, `ECHEC`) est consultable.
+- **RA-45** Les réponses de l'IA sont reçues en continu (streaming). Une
+  coupure réseau ou une surcharge passagère (HTTP 408, 429, 5xx) est retentée
+  automatiquement, jusqu'à 3 tentatives, après 5 puis 20 secondes de pause.
+  Une erreur définitive (clé refusée, requête invalide) ne l'est pas. Une
+  réponse tronquée par la limite de tokens est signalée comme telle.
 
 ## 11. Modèle de données
 
@@ -255,7 +260,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-20, RA-26 (blocage des portes) | `test_portes.py` | 1 |
 | RA-17 | `test_clarte.py` | 1 |
 | RA-34, RA-35 | `test_journal.py` | 1 |
-| RA-36 à RA-39 | `test_ia.py` | 1 |
+| RA-36 à RA-39, RA-45 | `test_ia.py` | 1 |
 | RA-18 à RA-21 | `test_clarification.py` | 2 |
 | RA-22 à RA-26, RA-41 | `test_conception.py` | 2 |
 | RA-20 (source rejetée), RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
