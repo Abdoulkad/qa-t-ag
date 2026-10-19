@@ -72,6 +72,30 @@ def executer(tache_id: int) -> None:
         db.commit()
 
 
+def _generer_au_format(config: ConfigIA, systeme: str, consigne: str, controler):
+    """Appelle l'IA puis contrôle le format ; une seule nouvelle tentative si le
+    format est rejeté, en renvoyant à l'IA les erreurs du script.
+
+    `controler(sortie)` renvoie (resultat, erreurs) ; erreurs vide = conforme.
+    En cas d'échec, l'erreur cite le début de la réponse pour le diagnostic.
+    """
+    sortie = fournisseurs.generer(config.fournisseur, config.modele, systeme, consigne)
+    resultat, erreurs = controler(sortie)
+    if not erreurs:
+        return sortie, resultat, 1
+    relance = (consigne + "\n\n---\nTa réponse précédente a été REJETÉE par le script de "
+               "contrôle pour ces raisons :\n- " + "\n- ".join(erreurs) +
+               "\nRecommence en respectant EXACTEMENT le format du contrat, sans rien "
+               "avant ni après.")
+    sortie = fournisseurs.generer(config.fournisseur, config.modele, systeme, relance)
+    resultat, erreurs = controler(sortie)
+    if erreurs:
+        debut = " ".join(sortie.split())[:300]
+        raise ValueError("%s (après 2 tentatives). Début de la réponse de l'IA : « %s »"
+                         % ("; ".join(erreurs), debut))
+    return sortie, resultat, 2
+
+
 def _config(db: Session, organisation_id: int) -> ConfigIA:
     config = db.get(ConfigIA, organisation_id)
     if config is None:
@@ -85,12 +109,15 @@ def _analyser(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    rapport = fournisseurs.generer(config.fournisseur, config.modele,
-                                   agents.prompt_skill("qa-revue-sfd"),
-                                   agents.consigne_revue(version.texte))
-    controle = scripts_qa.analyser_rapport_revue(rapport, version.texte)
-    if controle["code"] == 2:
-        raise ValueError("Rapport de revue mal formé : " + "; ".join(controle["erreurs"]))
+    def controler(sortie):
+        c = scripts_qa.analyser_rapport_revue(sortie, version.texte)
+        return c, (["rapport de revue mal formé : " + e for e in c["erreurs"]]
+                   if c["code"] == 2 else [])
+    rapport, controle, tentatives = _generer_au_format(
+        config, agents.prompt_skill("qa-revue-sfd"), agents.consigne_revue(version.texte),
+        controler)
+    if tentatives > 1:
+        controle["corrections"].append("format corrigé par l'IA à la 2e tentative")
 
     version.fournisseur_ia = config.fournisseur          # RA-38
     version.modele_ia = config.modele
@@ -132,13 +159,15 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
                  for q in version.questions]
     defauts = [{"code": d.code, "categorie": d.categorie, "gravite": d.gravite,
                 "citation": d.citation} for d in version.defauts]
-    rapport = fournisseurs.generer(config.fournisseur, config.modele,
-                                   agents.prompt_skill("qa-reecriture"),
-                                   agents.consigne_reecriture(version.texte, defauts, questions))
     repondues = [q["code"] for q in questions if (q["reponse"] or "").strip()]
-    controle = scripts_qa.verifier_reecriture(version.texte, rapport, repondues)
-    if controle["code"] == 2:
-        raise ValueError("Réécriture mal formée : " + "; ".join(controle["erreurs"]))
+
+    def controler(sortie):
+        c = scripts_qa.verifier_reecriture(version.texte, sortie, repondues)
+        return c, (["réécriture mal formée : " + e for e in c["erreurs"]]
+                   if c["code"] == 2 else [])
+    rapport, controle, _ = _generer_au_format(
+        config, agents.prompt_skill("qa-reecriture"),
+        agents.consigne_reecriture(version.texte, defauts, questions), controler)
 
     db.execute(delete(CritereAcceptation).where(CritereAcceptation.version_id == version.id))
     for c in controle["criteres"]:
@@ -165,19 +194,24 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
     criteres = [{"code": c.code, "texte": c.texte} for c in version.criteres]
-    sortie = fournisseurs.generer(config.fournisseur, config.modele,
-                                  agents.prompt_skill("qa-conception"),
-                                  agents.consigne_conception(version.texte_reecrit or version.texte,
-                                                             criteres, version.texte))
-    csv_texte, justifications = scripts_qa.separer_conception(sortie)
-    if not csv_texte.strip():
-        raise ValueError("La conception ne contient pas de CSV exploitable")
-    csv_texte = scripts_qa.normaliser_csv(csv_texte)
     reference = "\n\n".join([version.texte, version.texte_reecrit or ""] +
                             ["%s : %s" % (c["code"], c["texte"]) for c in criteres])
-    controle = scripts_qa.controler_cas(reference, csv_texte)
-    if controle["code"] in (2, 3):
-        raise ValueError("Cas de test mal formés :\n" + controle["message"][:1500])
+
+    def controler(sortie):
+        csv_texte, justifs = scripts_qa.separer_conception(sortie)
+        if not csv_texte.strip():
+            return None, ["aucun CSV exploitable (l'en-tête ID;Titre;… est introuvable)"]
+        c = scripts_qa.controler_cas(reference, scripts_qa.normaliser_csv(csv_texte))
+        c["justifications"] = justifs
+        if c["code"] in (2, 3):
+            lignes = [l for l in c["message"].splitlines() if l.startswith("[ERREUR]")]
+            return c, ["cas de test mal formés : " + l for l in lignes[:10]] or [c["message"][:300]]
+        return c, []
+    _, controle, _ = _generer_au_format(
+        config, agents.prompt_skill("qa-conception"),
+        agents.consigne_conception(version.texte_reecrit or version.texte, criteres, version.texte),
+        controler)
+    justifications = controle["justifications"]
 
     references_connues = ({c["code"] for c in criteres} |
                           set(scripts_qa.references(version.texte)))

@@ -39,8 +39,17 @@ def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]
     if sans:
         lignes += ["", "## Questions restées sans réponse (NE SONT PAS des sources)"]
         lignes += ["- %s — %s" % (q["code"], q["question"]) for q in sans]
-    lignes += ["", "Réécris l'exigence selon le format du contrat, sans rien avant ni après. "
-                   "N'invente aucune règle métier."]
+    lignes += ["", "Réécris l'exigence en respectant EXACTEMENT ce format, sans rien avant ni "
+                   "après, sans bloc de code. N'invente aucune règle métier.", "",
+               "## Exigence réécrite",
+               "<l'exigence réécrite>", "",
+               "## Critères d'acceptation",
+               "### CA-01",
+               "- **Critère** : Étant donné …, quand …, alors …",
+               "- **Sources** : « passage exact de l'exigence d'origine » ; Q-1",
+               "### CA-02",
+               "- **Critère** : …",
+               "- **Sources** : Q-2"]
     return "\n".join(lignes)
 
 

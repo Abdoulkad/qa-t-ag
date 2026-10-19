@@ -30,11 +30,21 @@ import os
 import re
 import sys
 
-RE_SECTION_EXIGENCE = re.compile(r"^##\s+Exigence réécrite\s*$", re.MULTILINE)
-RE_SECTION_CRITERES = re.compile(r"^##\s+Critères d'acceptation\s*$", re.MULTILINE)
-RE_CA = re.compile(r"^###\s+(CA-\d{2,3})\s*$")
-RE_CRITERE = re.compile(r"^\s*-\s*\*\*Critère\*\*\s*:\s*(.+?)\s*$")
-RE_SOURCES = re.compile(r"^\s*-\s*\*\*Sources?\*\*\s*:\s*(.*?)\s*$")
+# La forme est tolérante (niveau de titre, gras, numérotation, apostrophe
+# typographique, deux-points) ; le FOND ne l'est jamais : la vérification des
+# sources, plus bas, reste stricte.
+_TITRE = r"^\s*(?:#{1,4}\s*)?(?:\d+[.)]\s*)?\**\s*"
+_FIN = r"\s*\**\s*:?\s*\**\s*$"
+RE_SECTION_EXIGENCE = re.compile(
+    _TITRE + r"(?:exigence|user story|us)\s+(?:réécrite|reecrite|reformulée|reformulee)" + _FIN,
+    re.MULTILINE | re.IGNORECASE)
+RE_SECTION_CRITERES = re.compile(
+    _TITRE + r"crit[èe]res\s+d['’]\s*acceptation" + _FIN, re.MULTILINE | re.IGNORECASE)
+RE_CA = re.compile(r"^\s*(?:#{2,4}\s*|[-*]\s*)?\**\s*(CA-\d{2,3})\b\**\s*(?:[:—–-].*)?$")
+RE_CRITERE = re.compile(r"^\s*[-*]?\s*\**\s*Crit[èe]re\s*\**\s*:\s*\**\s*(.+?)\s*$",
+                        re.IGNORECASE)
+RE_SOURCES = re.compile(r"^\s*[-*]?\s*\**\s*Sources?\s*\**\s*:\s*\**\s*(.*?)\s*$",
+                        re.IGNORECASE)
 RE_CITATION = re.compile(r"«\s*(.+?)\s*»")
 RE_QUESTION = re.compile(r"\bQ-\d+\b")
 
@@ -145,6 +155,17 @@ En tant qu'utilisateur, je réinitialise mon mot de passe.
     code, _, cas, _ = verifier(origine, multi_blancs, ["Q-1"])
     if cas[0]["statut"] != "SOURCE":
         echecs.append(("blancs tolérés", cas[0]))
+    variante = """### 1. **Exigence réécrite :**
+En tant qu'utilisateur, je réinitialise mon mot de passe.
+
+### 2. Critères d’acceptation
+**CA-01** — lien expiré
+- Critère : Étant donné un lien émis, quand 30 minutes sont écoulées, alors il est refusé.
+- Sources : « valide pendant une durée limitée » ; Q-1
+"""
+    code, texte, cas, err = verifier(origine, variante, ["Q-1"])
+    if code != 0 or len(cas) != 1 or cas[0]["statut"] != "SOURCE":
+        echecs.append(("format tolérant", code, err, cas))
     return echecs
 
 

@@ -122,6 +122,8 @@ class IAFactice:
         if self.statut_http != 200:
             return httpx.Response(self.statut_http, json={"error": "refus"})
         texte = self.reponses[self._agent(corps)]
+        if isinstance(texte, list):          # réponses successives : la dernière se répète
+            texte = texte.pop(0) if len(texte) > 1 else texte[0]
         if "anthropic" in str(requete.url):
             return httpx.Response(200, json={"content": [{"type": "text", "text": texte}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": texte}}]})
