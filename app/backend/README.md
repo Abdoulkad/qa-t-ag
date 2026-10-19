@@ -1,4 +1,4 @@
-# QA-T-AG — Backend (FastAPI + PostgreSQL)
+# QA-T-AG — Application web (FastAPI + React + PostgreSQL)
 
 API de l'application web QA-T-AG. Les règles appliquées sont décrites dans
 [`docs/specifications.md`](../../docs/specifications.md) ; chaque règle
@@ -61,20 +61,43 @@ uvicorn qatag.main:app --reload
 L'API répond sur http://localhost:8000. La documentation interactive de
 toutes les routes est sur http://localhost:8000/docs.
 
-### 5. Premier compte
+### 5. Construire l'interface (une fois, puis à chaque mise à jour)
 
-Le **premier compte** créé devient Analyste, Superviseur et Administrateur
-(RA-02). Créez-le depuis http://localhost:8000/docs, route
-`POST /api/auth/inscription`, puis choisissez l'IA avec
-`PUT /api/config-ia`. L'interface React (lot 2) remplacera ces étapes.
+Prérequis : Node.js 22.12 ou plus récent (ou 20.19 minimum). Dans un second
+terminal, depuis le dossier du dépôt :
+
+```powershell
+cd app\frontend
+npm install
+npm run build
+```
+
+Relancez ensuite `uvicorn` : le même serveur sert l'API et l'interface sur
+http://localhost:8000.
+
+### 6. Premier compte
+
+Ouvrez http://localhost:8000 et cliquez sur **Créer un compte**. Le premier
+compte devient Analyste, Superviseur et Administrateur (RA-02). Choisissez
+ensuite l'IA dans **Configuration IA**.
+
+### Développer l'interface
+
+Pour modifier l'interface avec rechargement instantané, lancez `npm run dev`
+dans `app\frontend` et ouvrez http://localhost:5173 (le backend doit tourner
+sur le port 8000).
 
 ## Mises à jour
 
 Après chaque récupération d'une nouvelle version du code :
 
 ```powershell
+cd app\backend
 pip install -r requirements.txt
 alembic upgrade head
+cd ..\frontend
+npm install
+npm run build
 ```
 
 ## Lancer les tests

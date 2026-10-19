@@ -62,7 +62,7 @@ def test_pv2_bloque_puis_correction_humaine(client, admin, ia):
     r = client.post("/api/missions/%d/portes/PV-2" % mid, json={"decision": "APPROUVE"},
                     headers=admin)
     assert r.status_code == 409 and r.json()["regle"] == "RA-26"
-    assert r.json()["elements"] == ["CT-003 : INCOMPLET", "CT-004 : A_CLARIFIER"]
+    assert r.json()["elements"] == ["CT-003 : cas incomplet", "CT-004 : cas à clarifier"]
 
     cas = _cas(client, admin, mid)
     url = "/api/missions/%d/cas/%d" % (mid, cas["CT-003"]["id"])

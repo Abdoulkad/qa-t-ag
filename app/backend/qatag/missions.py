@@ -102,7 +102,8 @@ def bloquants_porte(db: Session, porte: str, v: VersionExigence) -> tuple[str, l
         CasTest.version_id == v.id).order_by(CasTest.code)).all()
     if not cas:
         return "RA-26", ["Aucun cas de test conçu"]
-    elements = ["%s : %s" % (c, s) for c, s in cas if s in ("A_CLARIFIER", "INCOMPLET")]
+    libelles = {"A_CLARIFIER": "cas à clarifier", "INCOMPLET": "cas incomplet"}
+    elements = ["%s : %s" % (c, libelles[s]) for c, s in cas if s in libelles]
     # RA-41 : chaque critère d'acceptation est couvert par au moins un cas
     couverts = set(db.scalars(select(Trace.reference).join(CasTest, CasTest.id == Trace.cas_id)
                               .where(CasTest.version_id == v.id)).all())

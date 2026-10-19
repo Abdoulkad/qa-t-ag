@@ -118,7 +118,7 @@ def test_pv2_bloque_par_cas_a_clarifier_ou_incomplets(client, admin, ia):
     _ajouter_cas(mid, ["PRET", "A_CLARIFIER", "INCOMPLET"])
     r = _decider(client, admin, mid, porte="PV-2")
     assert r.status_code == 409 and r.json()["regle"] == "RA-26"
-    assert r.json()["elements"] == ["CT-002 : A_CLARIFIER", "CT-003 : INCOMPLET"]
+    assert r.json()["elements"] == ["CT-002 : cas à clarifier", "CT-003 : cas incomplet"]
     m = client.get("/api/missions/%d" % mid, headers=admin).json()
     assert m["porte_en_attente"] == "PV-2" and len(m["bloquants_porte"]) == 2
 

@@ -47,3 +47,27 @@ def verification_journal(admin: Utilisateur = Depends(administrateur),
     """RA-35 : vérifie que la chaîne d'empreintes du journal est intacte."""
     integre, premiere_faute = journal.verifier_chaine(db, admin.organisation_id)
     return {"integre": integre, "premiere_entree_alteree": premiere_faute}
+
+
+# --- Interface web -----------------------------------------------------------
+# Une fois le frontend construit (app/frontend/dist), le même serveur sert
+# l'interface : une seule commande à lancer sur le poste.
+from pathlib import Path  # noqa: E402
+
+from fastapi import HTTPException  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+_INTERFACE = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+if (_INTERFACE / "index.html").is_file():
+    app.mount("/assets", StaticFiles(directory=_INTERFACE / "assets"), name="assets")
+
+    @app.get("/{chemin:path}", include_in_schema=False)
+    def interface(chemin: str):
+        if chemin.startswith("api/"):
+            raise HTTPException(404, "Route d'API inconnue")
+        fichier = (_INTERFACE / chemin).resolve()
+        if chemin and fichier.is_file() and _INTERFACE in fichier.parents:
+            return FileResponse(fichier)
+        return FileResponse(_INTERFACE / "index.html")   # routes React (/missions/3…)
