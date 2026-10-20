@@ -118,6 +118,8 @@ def couverture(v: VersionExigence) -> list[dict]:
             statut = "TITRE"
         elif scripts_qa.phrase_couverte(ph.texte, citations):
             statut = "COUVERTE"
+        elif scripts_qa.est_cadrage(ph.texte):
+            statut = "CADRE"           # rôle ou bénéfice, repris par la User Story réécrite
         elif ph.motif_non_reprise:
             statut = "JUSTIFIEE"
         else:

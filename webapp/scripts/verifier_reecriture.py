@@ -243,6 +243,23 @@ def _est_titre(phrase):
     return bool(_RE_TITRE_ID.match(phrase)) and phrase[-1] not in ".!?;:"
 
 
+# Cadrage d'une User Story : rôle (« En tant que… ») et bénéfice (« Afin de… »).
+# Repris par la User Story réécrite, pas par une règle : non contrôlé. La phrase
+# qui porte le besoin (« je veux… ») reste contrôlée, même si elle commence par
+# « En tant que ».
+_RE_CADRAGE = re.compile(
+    r"^[\s\-*•«\"]*(?:en\s+tant\s+qu(?:e\b|['’])|afin\s+(?:de|d['’]|que|qu['’])|pour\s+que\b|"
+    r"pour\s+qu['’]|dans\s+le\s+but\s+de?\b|as\s+an?\b|so\s+that\b|in\s+order\s+to\b)",
+    re.IGNORECASE)
+_RE_BESOIN = re.compile(r"\b(?:je\s+veux|je\s+souhaite|je\s+dois\s+pouvoir|j['’]ai\s+besoin|"
+                        r"i\s+want|i\s+need)\b", re.IGNORECASE)
+
+
+def est_cadrage(phrase):
+    """Vrai pour une phrase de rôle ou de bénéfice qui ne porte pas le besoin."""
+    return bool(_RE_CADRAGE.match(phrase)) and not _RE_BESOIN.search(phrase)
+
+
 def phrases_source(origine):
     """Découpe le texte d'origine en phrases numérotées, dans l'ordre."""
     phrases = []
@@ -272,11 +289,12 @@ def phrase_couverte(phrase, citations):
 
 
 def couverture(origine, citations):
-    """RA-48 : statut de chaque phrase : COUVERTE, NON_COUVERTE ou TITRE."""
+    """RA-48 : statut de chaque phrase : COUVERTE, NON_COUVERTE, TITRE ou CADRE."""
     resultat = []
     for p in phrases_source(origine):
         statut = ("TITRE" if p["titre"] else
-                  "COUVERTE" if phrase_couverte(p["texte"], citations) else "NON_COUVERTE")
+                  "COUVERTE" if phrase_couverte(p["texte"], citations) else
+                  "CADRE" if est_cadrage(p["texte"]) else "NON_COUVERTE")
         resultat.append({"numero": p["numero"], "texte": p["texte"], "statut": statut})
     return resultat
 
@@ -341,6 +359,17 @@ En tant qu'utilisateur, je réinitialise mon mot de passe.
     couv = {p["numero"]: p["statut"] for p in r["phrases"]}
     if couv != {1: "TITRE", 2: "COUVERTE", 3: "COUVERTE", 4: "NON_COUVERTE"}:
         echecs.append(("couverture", couv))
+    # Cadrage de la User Story : rôle et bénéfice non contrôlés, besoin contrôlé
+    us = ("En tant que client disposant d'un contrat d'assurance automobile,\n"
+          "je veux déclarer un sinistre en ligne,\n"
+          "afin de réparer mon véhicule sans difficultés financières.")
+    couv = {p["numero"]: p["statut"] for p in couverture(us, [])}
+    if couv != {1: "CADRE", 2: "NON_COUVERTE", 3: "CADRE"}:
+        echecs.append(("cadrage", couv))
+    if est_cadrage("En tant que client, je veux déclarer un sinistre en ligne."):
+        echecs.append(("besoin dans une phrase « En tant que »", ""))
+    if est_cadrage("Pour chaque sinistre, le gestionnaire valide le dossier."):
+        echecs.append(("« Pour » seul n'est pas du cadrage", ""))
     # Format
     if analyser(origine, "pas de format", [])["code"] != 2:
         echecs.append(("mal formé", ""))

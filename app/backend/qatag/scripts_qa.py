@@ -103,6 +103,11 @@ def phrases_source(origine: str) -> list[dict]:
     return _module("verifier_reecriture").phrases_source(origine)
 
 
+def est_cadrage(phrase: str) -> bool:
+    """RA-48 : rôle (« En tant que… ») ou bénéfice (« Afin de… ») d'une User Story."""
+    return _module("verifier_reecriture").est_cadrage(phrase)
+
+
 def phrase_couverte(phrase: str, citations: list[str]) -> bool:
     return _module("verifier_reecriture").phrase_couverte(phrase, citations)
 

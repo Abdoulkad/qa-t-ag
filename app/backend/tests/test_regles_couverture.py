@@ -128,3 +128,23 @@ def test_regle_verifiee_par_aucun_critere_bloque_pv1(client, admin, ia):
     m = _detail(client, admin, mid)
     assert m["bloquants_porte"] == ["RG-01 : règle vérifiée par aucun critère"]
     assert _pv1(client, admin, mid).json()["regle"] == "RA-47"
+
+
+def test_cadrage_de_la_user_story_non_bloquant_besoin_controle(client, admin, ia):
+    """Rôle et bénéfice sont repris par la User Story réécrite ; le besoin reste contrôlé."""
+    texte = ("En tant que client disposant d'un contrat d'assurance automobile,\n"
+             "je veux réinitialiser son mot de passe facilement,\n"
+             "afin de réparer mon véhicule sans subir de difficultés financières.\n"
+             "Le lien de réinitialisation est valide pendant une durée limitée.\n"
+             "REQ-001 : le nouveau mot de passe doit être sécurisé.")
+    r = client.post("/api/missions", json={"titre": "US", "texte": texte}, headers=admin)
+    mid = r.json()["mission"]["id"]
+    q1 = _detail(client, admin, mid)["versions"][0]["questions"][0]
+    client.put("/api/missions/%d/questions/%d" % (mid, q1["id"]), json={"reponse": "30 min"},
+               headers=admin)
+    ia.reponses["reecriture"] = SANS_CA03.replace("- **Sources** : Q-2\n", "")
+    client.post("/api/missions/%d/reecriture" % mid, headers=admin)
+    v = _detail(client, admin, mid)["versions"][0]
+    assert [p["statut"] for p in v["couverture"]] == [
+        "CADRE", "COUVERTE", "CADRE", "COUVERTE", "COUVERTE"]
+    assert _detail(client, admin, mid)["bloquants_porte"] == []

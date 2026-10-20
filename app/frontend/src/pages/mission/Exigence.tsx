@@ -339,7 +339,7 @@ function Precision({ missionId, recharger }: { missionId: number; recharger: () 
 }
 
 const CLASSE_PHRASE: Record<string, string> = {
-  COUVERTE: "couverte", NON_COUVERTE: "non-couverte", JUSTIFIEE: "justifiee", TITRE: "titre",
+  COUVERTE: "couverte", NON_COUVERTE: "non-couverte", JUSTIFIEE: "justifiee", TITRE: "titre", CADRE: "titre",
 };
 
 /** Texte d'origine, phrase par phrase, coloré selon sa reprise (RA-48). */
@@ -352,7 +352,9 @@ function TexteOrigine({ texte, couverture }: { texte: string; couverture: Phrase
           <span className={"phrase " + CLASSE_PHRASE[p.statut]}
                 title={p.statut === "NON_COUVERTE" ? `Phrase ${p.numero} : reprise par aucune règle ni aucun critère`
                   : p.statut === "JUSTIFIEE" ? `Non reprise volontairement : ${p.motif}`
-                  : p.statut === "TITRE" ? "Titre : non contrôlé" : `Phrase ${p.numero} : reprise`}>
+                  : p.statut === "TITRE" ? "Titre : non contrôlé"
+                  : p.statut === "CADRE" ? "Rôle ou bénéfice de la User Story : repris par la User Story réécrite, non contrôlé"
+                  : `Phrase ${p.numero} : reprise`}>
             {p.texte}
           </span>{" "}
         </span>
@@ -366,7 +368,8 @@ function Couverture({ missionId, phrases, modifiable, recharger }: {
 }) {
   const [sel, setSel] = useState<number[]>([]);
   const annuler = useAction();
-  const controlees = phrases.filter((p) => p.statut !== "TITRE");
+  const controlees = phrases.filter((p) => p.statut !== "TITRE" && p.statut !== "CADRE");
+  const cadrage = phrases.filter((p) => p.statut === "CADRE").length;
   const reprises = controlees.filter((p) => p.statut === "COUVERTE").length;
   const aTraiter = controlees.filter((p) => p.statut === "NON_COUVERTE");
   const justifiees = controlees.filter((p) => p.statut === "JUSTIFIEE");
@@ -377,6 +380,7 @@ function Couverture({ missionId, phrases, modifiable, recharger }: {
         <span><span className="phrase couverte">reprise</span></span>
         <span><span className="phrase non-couverte">non reprise</span></span>
         <span><span className="phrase justifiee">non reprise, justifiée</span></span>
+        {cadrage > 0 && <span><span className="phrase titre">cadrage (rôle, bénéfice) : non contrôlé</span></span>}
       </div>
       {(aTraiter.length > 0 || justifiees.length > 0) && (
         <div className="pile" style={{ marginTop: 10, gap: 8 }}>

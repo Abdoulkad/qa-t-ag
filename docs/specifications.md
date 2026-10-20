@@ -147,7 +147,10 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
   est motivé et journalisé. La traçabilité suit la chaîne RG → CA → CT, et le
   taux de couverture compte les règles.
 - **RA-48** **Couverture du texte d'origine** : le texte est découpé en phrases
-  numérotées (les titres et identifiants sont ignorés). Chaque phrase doit être
+  numérotées. Les titres et identifiants sont ignorés, comme les phrases de
+  **cadrage** de la User Story : rôle (« En tant que… ») et bénéfice
+  (« Afin de… », « Pour que… »), reprises par la User Story réécrite. La phrase
+  qui porte le besoin (« je veux… ») reste toujours contrôlée. Chaque phrase doit être
   reprise par au moins une citation valide d'une règle ou d'un critère restant.
   Sinon, PV-1 est refusé jusqu'à ce que l'humain relance la réécriture ou
   déclare la phrase « non reprise volontairement », avec un motif. Cette

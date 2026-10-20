@@ -158,7 +158,7 @@ export interface Regle extends ElementSource {
   criteres: string[];          // critères qui la vérifient
 }
 
-export type StatutPhrase = "TITRE" | "COUVERTE" | "NON_COUVERTE" | "JUSTIFIEE";
+export type StatutPhrase = "TITRE" | "CADRE" | "COUVERTE" | "NON_COUVERTE" | "JUSTIFIEE";
 
 export interface PhraseCouverture {
   id: number; numero: number; texte: string; statut: StatutPhrase;
