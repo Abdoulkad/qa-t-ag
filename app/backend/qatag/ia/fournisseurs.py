@@ -31,6 +31,10 @@ class Fournisseur:
     protocole: str          # "openai" ou "anthropic"
     attribut_cle: str | None  # nom du paramètre .env portant la clé
     modele_par_defaut: str
+    # Longueur de réponse demandée, en tokens. Elle inclut le raisonnement des
+    # modèles « thinking » (activé par défaut chez DeepSeek), d'où une marge
+    # large. Reste sous la sortie maximale documentée des modèles courants.
+    sortie_max: int = 8192
 
     def url(self) -> str:
         if self.code == "ollama":
@@ -56,12 +60,12 @@ URLS = {
 # Les modèles par défaut ne sont qu'une suggestion : l'Administrateur saisit
 # le modèle exact dans la configuration, selon son abonnement.
 FOURNISSEURS = {f.code: f for f in (
-    Fournisseur("deepseek", "DeepSeek", "openai", "deepseek_api_key", "deepseek-flash"),
-    Fournisseur("openai", "OpenAI", "openai", "openai_api_key", "gpt-4o-mini"),
-    Fournisseur("mistral", "Mistral", "openai", "mistral_api_key", "mistral-large-latest"),
+    Fournisseur("deepseek", "DeepSeek", "openai", "deepseek_api_key", "deepseek-flash", 32768),
+    Fournisseur("openai", "OpenAI", "openai", "openai_api_key", "gpt-4o-mini", 16384),
+    Fournisseur("mistral", "Mistral", "openai", "mistral_api_key", "mistral-large-latest", 16384),
     Fournisseur("ollama", "Ollama (local)", "openai", None, "llama3.1"),
     Fournisseur("anthropic", "Anthropic (Claude)", "anthropic", "anthropic_api_key",
-                "claude-sonnet-5-5"),
+                "claude-sonnet-5-5", 32000),
 )}
 
 
@@ -177,16 +181,19 @@ def _une_tentative(f: Fournisseur, entetes: dict, corps: dict) -> str:
     except httpx.HTTPError as e:
         raise ErreurIA("%s injoignable : %s" % (f.libelle, type(e).__name__)) from e
     if fin in ("length", "max_tokens"):
-        raise ErreurIA("%s a tronqué sa réponse : limite de %d tokens atteinte"
+        raise ErreurIA("%s a tronqué sa réponse : limite de %d tokens atteinte. "
+                       "Augmentez IA_MAX_TOKENS dans le fichier .env (sans dépasser la "
+                       "limite du modèle) puis redémarrez le serveur"
                        % (f.libelle, corps["max_tokens"]))
     return texte
 
 
 def generer(code_fournisseur: str, modele: str, systeme: str, utilisateur: str,
-            max_tokens: int = 8192) -> str:
+            max_tokens: int | None = None) -> str:
     f = FOURNISSEURS.get(code_fournisseur)
     if f is None:
         raise ErreurIA("Fournisseur inconnu : %s" % code_fournisseur)
+    max_tokens = max_tokens or parametres().ia_max_tokens or f.sortie_max
     if not f.disponible():
         raise ErreurIA("Clé d'API absente pour %s (fichier .env)" % f.libelle)
     entetes, corps = _requete(f, modele, systeme, utilisateur, max_tokens)

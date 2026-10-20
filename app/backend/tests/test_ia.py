@@ -127,4 +127,13 @@ def test_reponse_tronquee_signalee(ia):
         "choices": [{"message": {"content": "ID;Titre\nCT-001;dé"}, "finish_reason": "length"}]}))
     with pytest.raises(fournisseurs.ErreurIA) as e:
         fournisseurs.generer("deepseek", "m", "s", "u")
-    assert "tronqué" in str(e.value)
+    assert "tronqué" in str(e.value) and "IA_MAX_TOKENS" in str(e.value)
+
+
+def test_longueur_de_reponse_par_fournisseur_et_reglable(ia, monkeypatch):
+    fournisseurs.generer("deepseek", "m", "s", "u")
+    fournisseurs.generer("ollama", "m", "s", "u")
+    assert [a["corps"]["max_tokens"] for a in ia.appels] == [32768, 8192]
+    monkeypatch.setattr(parametres(), "ia_max_tokens", 50000)
+    fournisseurs.generer("deepseek", "m", "s", "u")
+    assert ia.appels[-1]["corps"]["max_tokens"] == 50000

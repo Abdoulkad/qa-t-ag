@@ -224,6 +224,9 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
   automatiquement, jusqu'à 3 tentatives, après 5 puis 20 secondes de pause.
   Une erreur définitive (clé refusée, requête invalide) ne l'est pas. Une
   réponse tronquée par la limite de tokens est signalée comme telle.
+  La longueur de réponse demandée dépend du fournisseur (DeepSeek 32 768
+  tokens, raisonnement compris ; OpenAI et Mistral 16 384 ; Anthropic 32 000 ;
+  Ollama 8 192). Elle se règle avec `IA_MAX_TOKENS` dans le fichier `.env`.
 
 ## 11. Modèle de données
 
