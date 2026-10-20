@@ -46,27 +46,18 @@ def analyser_rapport_revue(rapport: str, texte_sfd: str) -> dict:
         return {"code": 2, "erreurs": erreurs, "corrections": corrections, "statut": statut,
                 "defauts": []}
     absentes = set(cr.verifier_citations(defs, texte_sfd))
-
-    # Le script ne lit pas les questions : on les rattache à leur DEF ici.
-    questions, courant = {}, None
-    for ligne in rapport.splitlines():
-        m = cr.RE_DEF.match(ligne)
-        if m:
-            courant = m.group(1)
-            continue
-        mq = RE_QUESTION.match(ligne)
-        if mq and courant:
-            questions[courant] = mq.group(1)
-
     defauts = [{
         "code": d["id"], "categorie": d["categorie"], "gravite": d["gravite"],
         "section": d["section"], "citation": d["citation"],
         "citation_verifiee": d["id"] not in absentes,
-        "question": questions.get(d["id"]),
+        "constat": d.get("constat"), "justification": d.get("justification"),
+        "question": d.get("question"),
     } for d in defs]
     return {"code": 1 if absentes else 0,
             "erreurs": ["Citation absente du texte : %s" % c for c in sorted(absentes)],
-            "corrections": corrections, "statut": statut, "defauts": defauts}
+            "corrections": corrections, "statut": statut, "defauts": defauts,
+            "complementaires": cr.parser_complementaires(rapport),       # QA-REV-02 §7
+            "doublons": cr.doublons(defs)}                               # QA-REV-02 §8
 
 
 def normaliser_rapport_revue(rapport: str) -> tuple[str, list[str]]:
@@ -85,6 +76,11 @@ def normaliser_rapport_revue(rapport: str) -> tuple[str, list[str]]:
         bloc = "## Alerte sécurité\nAucune\n\n"
         rapport = rapport[:ancre] + bloc + rapport[ancre:] if ancre >= 0 else bloc + rapport
         corrections.append("section « Alerte sécurité » absente : ajoutée vide")
+    if not re.search(r"^##\s+Questions compl[ée]mentaires\s*$", rapport, re.MULTILINE | re.IGNORECASE):
+        m = re.search(r"^##\s+Statut du livrable\s*$", rapport, re.MULTILINE)
+        bloc = "## Questions complémentaires\nAucune\n\n"
+        rapport = rapport[:m.start()] + bloc + rapport[m.start():] if m else rapport + "\n\n" + bloc
+        corrections.append("section « Questions complémentaires » absente : ajoutée vide")
     if not re.search(r"^##\s+Statut du livrable\s*$", rapport, re.MULTILINE):
         rapport = rapport.rstrip() + "\n\n## Statut du livrable\nA_CLARIFIER\n"
         corrections.append("statut du livrable absent : A_CLARIFIER ajouté")

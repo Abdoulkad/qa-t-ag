@@ -14,23 +14,38 @@ def prompt_skill(nom: str) -> str:
 
 def consigne_revue(texte: str) -> str:
     return ("Voici l'exigence (SFD ou User Story) à revoir :\n\n" + texte +
-            "\n\nContraintes de format STRICTES : "
-            "1) Relève au maximum 15 défauts, les plus importants "
-            "(bloquants et majeurs en priorité). "
-            "2) Inventaire REQ/BR concis (une ligne par point). "
-            "3) Chaque défaut a sa citation mot pour mot ET une ligne "
-            "« - **Question** : » posant la question métier au rédacteur. "
-            "4) Les quatre sections sont OBLIGATOIRES, dans cet ordre, même vides : "
-            "« ## Alerte sécurité » (écris « Aucune » s'il n'y en a pas), "
-            "« ## Inventaire REQ et BR », « ## Défauts », « ## Statut du livrable » "
-            "suivi d'une valeur canonique. N'invente aucune règle métier.")
+            "\n\nContraintes STRICTES :\n"
+            "1) Relève au maximum 15 défauts, les plus importants (bloquants et majeurs en "
+            "priorité), sans doublon.\n"
+            "2) Chaque défaut : « ### DEF-nnn — <catégorie> — <criticité> », puis les lignes "
+            "Section, Citation (mot pour mot entre « »), Constat, Justification, Question.\n"
+            "3) Catégories permises, exactement : Contradiction certaine, Contradiction "
+            "apparente, Ambiguïté, Terme non défini, Exigence non testable, Règle manquante, "
+            "Cas limite à confirmer, Règle sans exigence, Incohérence avec les user stories. "
+            "« Certaine » seulement si les deux règles ne peuvent pas être satisfaites "
+            "ensemble ; si une exception peut les concilier : « apparente ».\n"
+            "4) Criticité selon l'impact démontré. Bloquante si l'erreur change le montant "
+            "versé, un droit, la sécurité ou les données, ou empêche de concevoir les tests ; "
+            "la Justification est alors OBLIGATOIRE.\n"
+            "5) Questions neutres : ne suggère jamais la réponse.\n"
+            "6) Ce que le texte ne dit pas (règle absente : interactions entre règles, "
+            "plafond partiellement atteint, statuts, droits, doublons, arrondis…) va dans "
+            "« ## Questions complémentaires » (8 au plus, QC-01…, lignes Sujet, Pourquoi, "
+            "Question), pas dans les défauts.\n"
+            "7) Sections OBLIGATOIRES, dans cet ordre, même vides (écris « Aucune ») : "
+            "« ## Alerte sécurité », « ## Inventaire REQ et BR », « ## Défauts », "
+            "« ## Questions complémentaires », « ## Statut du livrable » suivi d'une valeur "
+            "canonique. N'invente aucune règle métier.")
 
 
 def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]) -> str:
     """questions : [{code, question, reponse}] — seules les réponses comptent comme sources."""
-    lignes = ["## Exigence d'origine", origine, "", "## Défauts relevés par la revue (AG-01)"]
-    lignes += ["- %s (%s, %s) : « %s »" % (d["code"], d["categorie"], d["gravite"],
-                                           d["citation"] or "") for d in defauts] or ["- aucun"]
+    lignes = ["## Exigence d'origine", origine, "",
+              "## Défauts relevés par la revue (AG-01) et retenus par l'humain"]
+    lignes += ["- %s (%s, %s) : « %s »%s" % (d["code"], d["categorie"], d["gravite"],
+                                             d["citation"] or "",
+                                             " — %s" % d["constat"] if d.get("constat") else "")
+               for d in defauts] or ["- aucun"]
     lignes += ["", "## Réponses humaines aux questions métier (sources Q-n utilisables)"]
     repondues = [q for q in questions if (q["reponse"] or "").strip()]
     lignes += ["- %s — Question : %s\n  Réponse : %s" % (q["code"], q["question"], q["reponse"])

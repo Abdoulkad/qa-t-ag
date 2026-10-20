@@ -36,6 +36,7 @@ US_TEST = (
 RAPPORT_IA = """# Revue SFD — us-042
 
 ## Alerte sécurité
+Aucune
 
 ## Inventaire REQ et BR
 - REQ-001 — mot de passe sécurisé
@@ -44,17 +45,24 @@ RAPPORT_IA = """# Revue SFD — us-042
 ### DEF-001 — Ambiguïté — Bloquante
 - **Section** : US-042
 - **Citation** : « durée limitée »
+- **Constat** : La durée de validité du lien n'est pas chiffrée.
+- **Justification** : Testabilité : sans durée, aucun cas d'expiration ne peut être conçu.
 - **Question** : Quelle est la durée de validité exacte du lien ?
 
 ### DEF-002 — Terme non défini — Majeure
 - **Section** : REQ-001
 - **Citation** : « sécurisé »
+- **Constat** : Les règles de complexité ne sont pas définies.
 - **Question** : Quelles règles de complexité définissent un mot de passe sécurisé ?
 
 ### DEF-003 — Exigence non testable — Mineure
 - **Section** : US-042
 - **Citation** : « facilement et sans effort »
+- **Constat** : Aucun critère mesurable.
 - **Question** : Comment mesurer « facilement » ?
+
+## Questions complémentaires
+Aucune
 
 ## Statut du livrable
 A_CLARIFIER

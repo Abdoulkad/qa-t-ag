@@ -109,3 +109,14 @@ class EcartCriteres(BaseModel):
 class JustificationPhrases(BaseModel):
     ids: list[int] = Field(min_length=1)
     motif: str | None = None             # null pour annuler la justification
+
+
+class ValidationDefauts(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    action: str                          # CONFIRMER, ECARTER ou ANNULER
+    motif: str = ""
+
+
+class Requalification(BaseModel):
+    gravite: str
+    motif: str = Field(min_length=1)

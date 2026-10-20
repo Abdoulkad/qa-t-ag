@@ -135,6 +135,18 @@ class Defaut(Base):
     section: Mapped[str | None] = mapped_column(Text)
     citation: Mapped[str | None] = mapped_column(Text)
     citation_verifiee: Mapped[bool] = mapped_column(Boolean, default=False)
+    # QA-REV-02 : constat et criticité motivée, puis validation humaine (RA-49, RA-50)
+    constat: Mapped[str | None] = mapped_column(Text)
+    justification: Mapped[str | None] = mapped_column(Text)
+    validation: Mapped[str | None] = mapped_column(String(20))          # CONFIRME | ECARTE
+    motif_validation: Mapped[str | None] = mapped_column(Text)
+    gravite_initiale: Mapped[str | None] = mapped_column(String(20))    # avant requalification
+    motif_requalification: Mapped[str | None] = mapped_column(Text)
+    valide_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    valide_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint(
+        "validation IS NULL OR validation IN ('CONFIRME', 'ECARTE')",
+        name="ck_defaut_validation"),)
 
 
 class QuestionMetier(Base):
@@ -144,6 +156,10 @@ class QuestionMetier(Base):
     defaut_id: Mapped[int | None] = mapped_column(ForeignKey("defaut.id"))
     code: Mapped[str] = mapped_column(String(10))
     question: Mapped[str] = mapped_column(Text)
+    # DEFAUT (liée à un défaut), COMPLEMENTAIRE (règle absente du texte), PRECISION (humaine)
+    nature: Mapped[str] = mapped_column(String(20), default="DEFAUT", server_default="DEFAUT")
+    sujet: Mapped[str | None] = mapped_column(Text)
+    pourquoi: Mapped[str | None] = mapped_column(Text)
     ajoutee_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
     bloquante: Mapped[bool] = mapped_column(Boolean, default=False)
     reponse: Mapped[str | None] = mapped_column(Text)
@@ -154,9 +170,11 @@ class QuestionMetier(Base):
     motif_decision: Mapped[str | None] = mapped_column(Text)
     decide_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
     decide_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    __table_args__ = (CheckConstraint(
-        "decision IS NULL OR decision IN ('HORS_PERIMETRE', 'REPORTEE')",
-        name="ck_question_decision"),)
+    __table_args__ = (
+        CheckConstraint("decision IS NULL OR decision IN ('HORS_PERIMETRE', 'REPORTEE')",
+                        name="ck_question_decision"),
+        CheckConstraint("nature IN ('DEFAUT', 'COMPLEMENTAIRE', 'PRECISION')",
+                        name="ck_question_nature"))
 
 
 class RegleMetier(Base):

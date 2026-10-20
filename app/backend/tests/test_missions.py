@@ -51,7 +51,7 @@ def test_mission_refusee_tant_qu_aucune_ia_n_est_configuree(client, ia):
 
 
 def test_section_alerte_omise_par_l_ia_est_toleree_et_tracee(client, admin, ia):
-    ia.reponse = ia.reponse.replace("## Alerte sécurité\n\n", "")
+    ia.reponse = ia.reponse.replace("## Alerte sécurité\nAucune\n\n", "")
     m = _creer(client, admin)
     assert m["statut"] == "CLARIFICATION"
     assert "Alerte sécurité" in m["versions"][0]["controle_revue"]

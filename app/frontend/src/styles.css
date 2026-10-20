@@ -390,3 +390,12 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .phrase.titre { color: var(--encre-pale); }
 .legende { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; margin-top: 8px; }
 .lien-element { font-size: 0.8rem; color: var(--encre-douce); margin-top: 6px; }
+
+/* Revue AG-01 v2 (QA-REV-02) */
+.table-defauts td { font-size: 0.86rem; }
+.table-defauts tr.ecarte td { opacity: 0.55; }
+.table-defauts tr.ecarte td:first-child, .table-defauts tr.ecarte td:last-child { opacity: 1; }
+.table-defauts .citation { margin: 0 0 6px; }
+.table-defauts .constat { color: var(--encre-douce); }
+.table-defauts .justif { font-size: 0.8rem; color: var(--encre-douce); margin-top: 4px; }
+.table-defauts tr.formulaire td { background: var(--action-pale); }

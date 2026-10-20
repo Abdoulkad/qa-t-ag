@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type ElementSource, type Mission, type PhraseCouverture, type Question, type Version } from "../../api";
+import { api, type Defaut, type ElementSource, type Mission, type PhraseCouverture, type Question, type Version } from "../../api";
 import { MessageErreur, Pastille, useAction } from "../../composants";
 import { date, DECISION_QUESTION } from "../../libelles";
 
@@ -50,25 +50,8 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
             Vérifiez ces défauts avant de vous y fier.
           </div>
         )}
-        <div className="panneau">
-          {v.defauts.length === 0 && <div className="vide">Aucun défaut relevé.</div>}
-          {v.defauts.map((d) => (
-            <div key={d.id} className="defaut">
-              <div className="rangee">
-                <span className="ref">{d.code}</span>
-                <strong>{d.categorie}</strong>
-                <span className={"gravite-" + d.gravite}>{d.gravite}</span>
-                {d.section && <span className="discret-texte">{d.section}</span>}
-              </div>
-              {d.citation && (
-                <div className={"citation" + (d.citation_verifiee ? "" : " non-verifiee")}>
-                  « {d.citation} »
-                  {!d.citation_verifiee && <div style={{ color: "var(--alerte)", fontSize: "0.8rem" }}>Citation introuvable dans le texte d'origine</div>}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <TableDefauts missionId={m.id} defauts={v.defauts} questions={v.questions}
+                      modifiable={clarification} recharger={recharger} />
       </section>
 
       {/* --- Clarifier ---------------------------------------------------- */}
@@ -103,13 +86,29 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
               </label>
             </div>
           )}
-          {v.questions.map((q) => (
+          {v.questions.filter((q) => q.nature !== "COMPLEMENTAIRE").map((q) => (
             <QuestionLigne key={q.id} q={q} missionId={m.id} modifiable={clarification} recharger={recharger}
                            selectionnee={selQuestions.includes(q.id)}
                            basculer={() => basculer(selQuestions, setSelQuestions, q.id)} />
           ))}
           {clarification && <Precision missionId={m.id} recharger={recharger} />}
         </div>
+        {v.questions.some((q) => q.nature === "COMPLEMENTAIRE") && (
+          <>
+            <h3 style={{ margin: "16px 0 4px" }}>Questions complémentaires</h3>
+            <p className="discret-texte" style={{ marginBottom: 8 }}>
+              Règles absentes du texte, repérées par l'agent. Elles ne pèsent pas dans le score et ne bloquent pas la
+              réécriture ; vos réponses deviennent des sources, comme les autres.
+            </p>
+            <div className="panneau">
+              {v.questions.filter((q) => q.nature === "COMPLEMENTAIRE").map((q) => (
+                <QuestionLigne key={q.id} q={q} missionId={m.id} modifiable={clarification} recharger={recharger}
+                               selectionnee={selQuestions.includes(q.id)}
+                               basculer={() => basculer(selQuestions, setSelQuestions, q.id)} />
+              ))}
+            </div>
+          </>
+        )}
         {clarification && (
           <div className="pile" style={{ marginTop: 12, gap: 8 }}>
             {bloquantesSansReponse.length > 0 && (
@@ -226,8 +225,14 @@ function QuestionLigne({ q, missionId, modifiable, recharger, selectionnee, basc
         <span style={{ flex: 1 }}>{q.question}</span>
         {q.bloquante && <Pastille ton="alerte">Bloquante</Pastille>}
         {q.ajoutee_par_humain && <Pastille ton="neutre">Précision ajoutée</Pastille>}
+        {q.nature === "COMPLEMENTAIRE" && <Pastille ton="neutre">Complémentaire</Pastille>}
         {q.decision && <Pastille ton="attente">{DECISION_QUESTION[q.decision]}</Pastille>}
       </div>
+      {q.nature === "COMPLEMENTAIRE" && (q.sujet || q.pourquoi) && (
+        <div className="discret-texte">
+          {q.sujet && <strong>{q.sujet}</strong>}{q.sujet && q.pourquoi && " — "}{q.pourquoi}
+        </div>
+      )}
       {q.decision ? (
         <div className="rangee">
           <span className="discret-texte">
@@ -274,7 +279,7 @@ function QuestionLigne({ q, missionId, modifiable, recharger, selectionnee, basc
   );
 }
 
-const FEMININ = ["question", "règle", "phrase"];
+const FEMININ = ["question", "règle", "phrase"];  // « défaut » reste au masculin
 
 /** Barre d'action groupée : une décision et un motif communs, une ligne de journal par élément. */
 function BarreDecision({ nombre, objet, options, appliquer, annuler }: {
@@ -532,6 +537,167 @@ function ElementLigne({ e, objet, ecartable, lien, selectionne, basculer, ecarte
           <MessageErreur erreur={action.erreur} />
         </div>
       )}
+    </div>
+  );
+}
+
+const STATUT_DEFAUT: Record<string, { libelle: string; ton: "neutre" | "succes" | "attente" }> = {
+  A_EXAMINER: { libelle: "À examiner", ton: "attente" },
+  CONFIRME: { libelle: "Confirmé", ton: "succes" },
+  ECARTE: { libelle: "Écarté", ton: "neutre" },
+};
+
+/** Tableau de revue QA-REV-02 : extrait, type, criticité motivée, question, statut de validation. */
+function TableDefauts({ missionId, defauts, questions, modifiable, recharger }: {
+  missionId: number; defauts: Defaut[]; questions: Question[]; modifiable: boolean; recharger: () => void;
+}) {
+  const [sel, setSel] = useState<number[]>([]);
+  const [ouvert, setOuvert] = useState<{ id: number; mode: "ECARTER" | "CRITICITE" } | null>(null);
+  const action = useAction();
+  if (!defauts.length) return <div className="panneau"><div className="vide">Aucun défaut relevé.</div></div>;
+  const aExaminer = defauts.filter((d) => !d.validation);
+  const valider = (ids: number[], act: string, motif = "") => action.lancer(async () => {
+    await api(`/missions/${missionId}/defauts-validation`, { methode: "PUT", corps: { ids, action: act, motif } });
+    setSel([]); setOuvert(null); recharger();
+  });
+  return (
+    <div className="pile" style={{ gap: 8 }}>
+      <div className="rangee" style={{ justifyContent: "space-between" }}>
+        <span className="discret-texte">
+          {aExaminer.length
+            ? `${aExaminer.length} défaut${aExaminer.length > 1 ? "s" : ""} à examiner : l'analyse de l'agent est une aide, c'est vous qui validez.`
+            : "Tous les défauts ont été examinés."}
+        </span>
+        {modifiable && aExaminer.length > 1 && (
+          <button className="bouton petit" disabled={action.enCours}
+                  onClick={() => valider(aExaminer.map((d) => d.id), "CONFIRMER")}>
+            Confirmer les {aExaminer.length} défauts à examiner
+          </button>
+        )}
+      </div>
+      {modifiable && sel.length > 0 && (
+        <BarreDecision nombre={sel.length} objet="défaut"
+          options={[{ valeur: "ECARTER", libelle: "Écarter (faux positif)" }]}
+          appliquer={async (_d, motif) => {
+            await api(`/missions/${missionId}/defauts-validation`,
+              { methode: "PUT", corps: { ids: sel, action: "ECARTER", motif } });
+            setSel([]); recharger();
+          }} annuler={() => setSel([])} />
+      )}
+      <MessageErreur erreur={action.erreur} />
+      <div className="panneau table-defile">
+        <table className="table-defauts">
+          <thead>
+            <tr>
+              {modifiable && <th style={{ width: 28 }} />}
+              <th style={{ width: 70 }}>Réf.</th>
+              <th>Extrait source, constat et question</th>
+              <th style={{ width: 160 }}>Type et criticité</th>
+              <th style={{ width: 125 }}>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {defauts.map((d) => {
+              const q = questions.find((x) => x.defaut_id === d.id);
+              const statut = STATUT_DEFAUT[d.validation ?? "A_EXAMINER"];
+              return [
+                <tr key={d.id} className={d.validation === "ECARTE" ? "ecarte" : ""}>
+                  {modifiable && (
+                    <td>{d.validation !== "ECARTE" && (
+                      <input type="checkbox" checked={sel.includes(d.id)} aria-label={"Sélectionner " + d.code}
+                             onChange={() => setSel(sel.includes(d.id) ? sel.filter((x) => x !== d.id) : [...sel, d.id])} />
+                    )}</td>
+                  )}
+                  <td><span className="ref">{d.code}</span>{d.section && <div className="sous">{d.section}</div>}</td>
+                  <td>
+                    {d.citation && (
+                      <div className={"citation" + (d.citation_verifiee ? "" : " non-verifiee")}>
+                        « {d.citation} »
+                        {!d.citation_verifiee && <div style={{ color: "var(--alerte)", fontSize: "0.8rem" }}>Citation introuvable dans le texte d'origine</div>}
+                      </div>
+                    )}
+                    {d.constat && <div className="constat">{d.constat}</div>}
+                    {q && <div style={{ marginTop: 6 }}><span className="ref">{q.code}</span> {q.question}</div>}
+                  </td>
+                  <td>
+                    <div><strong>{d.categorie}</strong></div>
+                    <div className={"gravite-" + d.gravite}>
+                      {d.gravite}{d.gravite_initiale && <span className="discret-texte"> (agent : {d.gravite_initiale})</span>}
+                    </div>
+                    {d.gravite === "Bloquante" && <div className="sous" style={{ color: "var(--alerte)" }}>Bloque la conception des tests</div>}
+                    {d.justification && <div className="justif">{d.justification}</div>}
+                    {d.motif_requalification && <div className="justif">Requalifié : « {d.motif_requalification} »</div>}
+                  </td>
+                  <td>
+                    <Pastille ton={statut.ton}>{statut.libelle}</Pastille>
+                    {d.validation === "ECARTE" && d.motif_validation && <div className="sous">« {d.motif_validation} »</div>}
+                    {modifiable && (
+                      <div className="pile" style={{ gap: 2, marginTop: 6, alignItems: "flex-start" }}>
+                        {!d.validation && (
+                          <button className="bouton discret petit" disabled={action.enCours}
+                                  onClick={() => valider([d.id], "CONFIRMER")}>Confirmer</button>
+                        )}
+                        {d.validation !== "ECARTE" && (
+                          <button className="bouton discret petit" onClick={() => setOuvert({ id: d.id, mode: "ECARTER" })}>Écarter…</button>
+                        )}
+                        {d.validation !== "ECARTE" && (
+                          <button className="bouton discret petit" onClick={() => setOuvert({ id: d.id, mode: "CRITICITE" })}>Criticité…</button>
+                        )}
+                        {d.validation && (
+                          <button className="bouton discret petit" disabled={action.enCours}
+                                  onClick={() => valider([d.id], "ANNULER")}>Remettre à examiner</button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>,
+                ouvert?.id === d.id && (
+                  <tr key={d.id + "-f"} className="formulaire">
+                    <td colSpan={modifiable ? 5 : 4}>
+                      <FormulaireDefaut defaut={d} mode={ouvert.mode} missionId={missionId}
+                                        fermer={() => setOuvert(null)} apres={() => { setOuvert(null); recharger(); }} />
+                    </td>
+                  </tr>
+                ),
+              ];
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FormulaireDefaut({ defaut: d, mode, missionId, fermer, apres }: {
+  defaut: Defaut; mode: "ECARTER" | "CRITICITE"; missionId: number; fermer: () => void; apres: () => void;
+}) {
+  const [motif, setMotif] = useState("");
+  const [gravite, setGravite] = useState(d.gravite === "Bloquante" ? "Majeure" : "Bloquante");
+  const action = useAction();
+  return (
+    <div className="rangee">
+      <strong>{d.code}</strong>
+      {mode === "CRITICITE" && (
+        <select value={gravite} onChange={(e) => setGravite(e.target.value)} aria-label={"Nouvelle criticité de " + d.code}>
+          {["Bloquante", "Majeure", "Mineure"].filter((g) => g !== d.gravite).map((g) => <option key={g}>{g}</option>)}
+        </select>
+      )}
+      <input type="text" value={motif} onChange={(e) => setMotif(e.target.value)} style={{ flex: 1, minWidth: 220 }}
+             aria-label={"Motif pour " + d.code}
+             placeholder={mode === "ECARTER" ? "Pourquoi est-ce un faux positif ?" : "Pourquoi changer la criticité ? (impact)"} />
+      <button className={"bouton petit" + (mode === "ECARTER" ? " rejeter" : "")} disabled={!motif.trim() || action.enCours}
+              onClick={() => action.lancer(async () => {
+                if (mode === "ECARTER") {
+                  await api(`/missions/${missionId}/defauts-validation`,
+                    { methode: "PUT", corps: { ids: [d.id], action: "ECARTER", motif } });
+                } else {
+                  await api(`/missions/${missionId}/defauts/${d.id}/criticite`,
+                    { methode: "PUT", corps: { gravite, motif } });
+                }
+                apres();
+              })}>{mode === "ECARTER" ? "Écarter" : "Changer la criticité"}</button>
+      <button className="bouton discret petit" onClick={fermer}>Annuler</button>
+      <MessageErreur erreur={action.erreur} />
     </div>
   );
 }

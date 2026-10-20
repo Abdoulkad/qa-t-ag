@@ -103,7 +103,29 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
 
 - **RA-17** Le **score de clarté** (0-100) est calculé par script à partir du
   nombre et de la gravité des défauts, jamais noté par l'IA. Formule :
-  `100 − 25 × bloquants − 10 × majeurs − 3 × mineurs`, borné à [0, 100].
+  `100 − 25 × bloquants − 10 × majeurs − 3 × mineurs`, borné à [0, 100]. Il
+  porte sur les défauts retenus : un défaut écarté n'y compte plus, un défaut
+  requalifié y compte avec sa nouvelle criticité (RA-50).
+- **RA-49** **Revue AG-01, grille QA-REV-02.** Chaque défaut porte une citation
+  exacte, un constat (le problème, sans reformuler l'exigence), une catégorie
+  parmi : contradiction certaine, contradiction apparente, ambiguïté, terme non
+  défini, exigence non testable, règle manquante, cas limite à confirmer, règle
+  sans exigence, incohérence avec les user stories ; une criticité selon
+  l'impact démontré et une question neutre. « Certaine » est réservée à deux
+  règles impossibles à satisfaire ensemble ; une exception possible fait une
+  contradiction « apparente ». Le script refuse une contradiction non qualifiée
+  et une criticité `Bloquante` sans justification, et signale les doublons
+  (même citation, même catégorie). Les règles absentes du texte font l'objet de
+  **questions complémentaires**, sans citation : elles ne comptent pas dans le
+  score, ne bloquent pas la réécriture, et leurs réponses sont des sources.
+- **RA-50** **Validation humaine des défauts.** La revue est une aide : chaque
+  défaut peut être confirmé, écarté comme faux positif (motif obligatoire ; sa
+  question sans réponse passe hors périmètre avec ce motif, ce qu'une
+  annulation défait) ou requalifié (motif obligatoire ; la criticité de l'agent
+  est conservée, la question devient bloquante ou non). Confirmer et écarter se
+  font par lot. Le score est recalculé, la réécriture ignore les défauts
+  écartés, chaque décision est journalisée, et PV-1 montre les défauts jamais
+  examinés et ceux écartés.
 - **RA-18** Une réponse à une question métier enregistre son auteur et sa date.
 - **RA-19** Chaque règle métier et chaque critère d'acceptation réécrit **cite
   au moins une source** : une phrase de l'exigence d'origine (citée mot pour
@@ -275,8 +297,8 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 | `mission` | Référence (M-001…), titre, statut, organisation, créateur |
 | `participant` | Mission ↔ utilisateur |
 | `version_exigence` | Texte, n° de version, empreinte, auteur, fournisseur et modèle IA, score de clarté, texte réécrit, points ouverts |
-| `defaut` | DEF-xx : catégorie, gravité, citation, description (AG-01) |
-| `question_metier` | Question, réponse, auteur et date de la réponse, bloquante, décision (`HORS_PERIMETRE` / `REPORTEE`), motif, auteur et date de la décision |
+| `defaut` | DEF-xx : catégorie, criticité (et criticité initiale de l'agent), citation, constat, justification, validation (`CONFIRME` / `ECARTE`), motifs, auteur et date |
+| `question_metier` | Question, nature (`DEFAUT` / `COMPLEMENTAIRE` / `PRECISION`), sujet et raison (complémentaire), réponse, auteur et date de la réponse, bloquante, décision (`HORS_PERIMETRE` / `REPORTEE`), motif, auteur et date de la décision |
 | `regle_metier` | RG-n : texte, sources, sources rejetées, statut (`SOURCE` / `HYPOTHESE`) |
 | `critere_acceptation` | Texte, sources, règles vérifiées (RG-n), statut (`SOURCE` / `HYPOTHESE`) |
 | `phrase_source` | Phrase numérotée du texte d'origine, titre, motif de non-reprise, auteur et date |
@@ -309,6 +331,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-20 (source rejetée), RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
 | RA-46 | `test_cahier_cas.py` | 2 |
 | RA-47, RA-48 | `test_regles_couverture.py` | 2 |
+| RA-17 (défauts retenus), RA-49, RA-50 | `test_revue_v2.py` | 2 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

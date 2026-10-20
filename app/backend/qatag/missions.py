@@ -3,7 +3,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from . import journal, regles, scripts_qa, taches
-from .models import (CasTest, ConfigIA, CritereAcceptation, DecisionPorte, Mission, Participant,
+from .models import (CasTest, ConfigIA, CritereAcceptation, DecisionPorte, Defaut, Mission,
+                     Participant,
                      PhraseSource, QuestionMetier, RegleMetier, Trace, Utilisateur,
                      VersionExigence, maintenant)
 from .regles import RegleViolee
@@ -272,7 +273,8 @@ def ajouter_precision(db: Session, u: Utilisateur, m: Mission, question: str,
         raise RegleViolee("RA-18", "Une précision exige une question et sa réponse")
     q = QuestionMetier(version_id=v.id, code="Q-%d" % (len(v.questions) + 1),
                        question=question.strip(), reponse=reponse.strip(), bloquante=False,
-                       ajoutee_par_id=u.id, repondu_par_id=u.id, repondu_le=maintenant())
+                       ajoutee_par_id=u.id, repondu_par_id=u.id, repondu_le=maintenant(),
+                       nature="PRECISION")
     db.add(q)
     db.flush()
     journal.ajouter(db, m.organisation_id, "precision_ajoutee", mission_id=m.id, acteur_id=u.id,
@@ -357,6 +359,84 @@ def justifier_phrases(db: Session, u: Utilisateur, m: Mission, ids: list[int],
                                  "motif": ph.motif_non_reprise})
     db.commit()
     return len(phrases)
+
+
+PREFIXE_ECART_DEFAUT = "Défaut écarté"
+
+
+def recalculer_score(v: VersionExigence) -> None:
+    """RA-17 / RA-50 : le score de clarté porte sur les défauts retenus (non écartés),
+    avec leur criticité courante."""
+    v.score_clarte = regles.score_clarte([d.gravite for d in v.defauts if d.validation != "ECARTE"])
+
+
+def valider_defauts(db: Session, u: Utilisateur, m: Mission, ids: list[int], action: str,
+                    motif: str = "") -> int:
+    """RA-50 : l'humain confirme, écarte (faux positif, motif obligatoire) ou remet à
+    examiner un ou plusieurs défauts. Écarter un défaut déclare sa question sans réponse
+    hors périmètre avec le même motif ; l'annulation le défait. Groupable (RA-44)."""
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "Valider un défaut")
+    if action not in ("CONFIRMER", "ECARTER", "ANNULER"):
+        raise RegleViolee("RA-50", "Action inconnue : %s" % action)
+    if action == "ECARTER" and not (motif or "").strip():
+        raise RegleViolee("RA-50", "Écarter un défaut doit être motivé")
+    defauts = [db.get(Defaut, i) for i in dict.fromkeys(ids)]
+    if not defauts or any(d is None or d.version_id != v.id for d in defauts):
+        raise RegleViolee("RA-05", "Défaut introuvable sur la version courante")
+    valeur = {"CONFIRMER": "CONFIRME", "ECARTER": "ECARTE", "ANNULER": None}[action]
+    for d in defauts:
+        d.validation = valeur
+        d.motif_validation = motif.strip() if action == "ECARTER" else None
+        d.valide_par_id = u.id if valeur else None
+        d.valide_le = maintenant() if valeur else None
+        for q in v.questions:
+            if q.defaut_id != d.id or (q.reponse or "").strip():
+                continue
+            if action == "ECARTER":
+                q.decision, q.decide_par_id, q.decide_le = "HORS_PERIMETRE", u.id, maintenant()
+                q.motif_decision = "%s (%s) : %s" % (PREFIXE_ECART_DEFAUT, d.code, motif.strip())
+            elif (q.motif_decision or "").startswith(PREFIXE_ECART_DEFAUT):
+                q.decision = q.motif_decision = q.decide_par_id = q.decide_le = None
+        journal.ajouter(db, m.organisation_id,
+                        {"CONFIRMER": "defaut_confirme", "ECARTER": "defaut_ecarte",
+                         "ANNULER": "validation_defaut_annulee"}[action],
+                        mission_id=m.id, acteur_id=u.id,
+                        details={"defaut": d.code, "categorie": d.categorie,
+                                 "gravite": d.gravite, "motif": d.motif_validation})
+    recalculer_score(v)
+    db.commit()
+    return len(defauts)
+
+
+def requalifier_defaut(db: Session, u: Utilisateur, m: Mission, defaut_id: int, gravite: str,
+                       motif: str) -> Defaut:
+    """RA-50 : l'humain change la criticité d'un défaut, avec un motif. La criticité
+    proposée par l'agent est conservée ; la question suit (bloquante ou non)."""
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "Requalifier un défaut")
+    if gravite not in regles.GRAVITE_POIDS:
+        raise RegleViolee("RA-50", "Criticité inconnue : %s" % gravite)
+    if not (motif or "").strip():
+        raise RegleViolee("RA-50", "Changer la criticité d'un défaut doit être motivé")
+    d = db.get(Defaut, defaut_id)
+    if d is None or d.version_id != v.id:
+        raise RegleViolee("RA-05", "Défaut introuvable sur la version courante")
+    if gravite == d.gravite:
+        raise RegleViolee("RA-50", "%s est déjà %s" % (d.code, gravite))
+    ancienne = d.gravite
+    d.gravite_initiale = d.gravite_initiale or d.gravite
+    d.gravite = gravite
+    d.motif_requalification = motif.strip()
+    d.valide_par_id, d.valide_le = u.id, maintenant()
+    d.validation = d.validation or "CONFIRME"
+    for q in v.questions:
+        if q.defaut_id == d.id:
+            q.bloquante = gravite == "Bloquante"
+    journal.ajouter(db, m.organisation_id, "defaut_requalifie", mission_id=m.id, acteur_id=u.id,
+                    details={"defaut": d.code, "de": ancienne, "vers": gravite,
+                             "motif": motif.strip()})
+    recalculer_score(v)
+    db.commit()
+    return d
 
 
 def ecarter_critere(db: Session, u: Utilisateur, m: Mission, critere_id: int, motif: str) -> None:

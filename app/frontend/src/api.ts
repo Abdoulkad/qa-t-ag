@@ -136,6 +136,9 @@ export interface ResumeMission {
 export interface Defaut {
   id: number; code: string; categorie: string; gravite: string;
   section: string | null; citation: string | null; citation_verifiee: boolean;
+  constat: string | null; justification: string | null;
+  validation: "CONFIRME" | "ECARTE" | null; motif_validation: string | null;
+  gravite_initiale: string | null; motif_requalification: string | null; valide_le: string | null;
 }
 
 export interface Question {
@@ -143,6 +146,7 @@ export interface Question {
   reponse: string | null; ajoutee_par_humain: boolean; repondu_le: string | null;
   decision: "HORS_PERIMETRE" | "REPORTEE" | null; motif_decision: string | null;
   decide_le: string | null;
+  nature: "DEFAUT" | "COMPLEMENTAIRE" | "PRECISION"; sujet: string | null; pourquoi: string | null;
 }
 
 export interface ElementSource {

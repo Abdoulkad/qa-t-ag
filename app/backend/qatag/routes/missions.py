@@ -16,7 +16,7 @@ from ..models import (CasTest, DecisionPorte, EntreeJournal, Execution, Mission,
 from ..regles import PORTES
 from .schemas import (AjoutParticipant, CreationMission, Decision, DecisionQuestions,
                       EcartCritere, EcartCriteres, JustificationPhrases, ModificationCas,
-                      NouvelleVersion, Precision,
+                      NouvelleVersion, Precision, Requalification, ValidationDefauts,
                       Reponse)
 
 routeur = APIRouter(prefix="/api", tags=["Missions"])
@@ -47,10 +47,16 @@ def _version(db: Session, v: VersionExigence) -> dict:
         "code_controle_revue": v.code_controle_revue, "cree_le": v.cree_le,
         "defauts": [{"id": d.id, "code": d.code, "categorie": d.categorie, "gravite": d.gravite,
                      "section": d.section, "citation": d.citation,
-                     "citation_verifiee": d.citation_verifiee} for d in v.defauts],
+                     "citation_verifiee": d.citation_verifiee, "constat": d.constat,
+                     "justification": d.justification, "validation": d.validation,
+                     "motif_validation": d.motif_validation,
+                     "gravite_initiale": d.gravite_initiale,
+                     "motif_requalification": d.motif_requalification,
+                     "valide_le": d.valide_le} for d in v.defauts],
         "questions": [{"id": q.id, "code": q.code, "defaut_id": q.defaut_id,
                        "question": q.question, "bloquante": q.bloquante, "reponse": q.reponse,
                        "ajoutee_par_humain": q.ajoutee_par_id is not None,
+                       "nature": q.nature, "sujet": q.sujet, "pourquoi": q.pourquoi,
                        "decision": q.decision, "motif_decision": q.motif_decision,
                        "decide_le": q.decide_le,
                        "repondu_par_id": q.repondu_par_id, "repondu_le": q.repondu_le}
@@ -247,6 +253,22 @@ def ecarter_criteres(mission_id: int, entree: EcartCriteres,
                      u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
     n = svc.ecarter_criteres(db, u, _mission(db, u, mission_id), entree.ids, entree.motif)
     return {"ecartes": n}
+
+
+@routeur.put("/missions/{mission_id}/defauts-validation")
+def valider_defauts(mission_id: int, entree: ValidationDefauts,
+                    u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    n = svc.valider_defauts(db, u, _mission(db, u, mission_id), entree.ids, entree.action,
+                            entree.motif)
+    return {"defauts": n}
+
+
+@routeur.put("/missions/{mission_id}/defauts/{defaut_id}/criticite")
+def requalifier_defaut(mission_id: int, defaut_id: int, entree: Requalification,
+                       u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    d = svc.requalifier_defaut(db, u, _mission(db, u, mission_id), defaut_id, entree.gravite,
+                               entree.motif)
+    return {"code": d.code, "gravite": d.gravite, "gravite_initiale": d.gravite_initiale}
 
 
 @routeur.delete("/missions/{mission_id}/regles")

@@ -44,12 +44,19 @@ export default function Porte({ mission: m, recharger }: {
           </div>
         )}
         {porte === "PV-1" && (courante.points_ouverts.length > 0 || courante.questions.some((q) => q.decision)
-          || courante.couverture.some((p) => p.statut === "JUSTIFIEE")) && (
+          || courante.couverture.some((p) => p.statut === "JUSTIFIEE")
+          || courante.defauts.some((d) => !d.validation || d.validation === "ECARTE")) && (
           <div className="message-info">
             <strong>À savoir avant de décider</strong>
             {courante.points_ouverts.length > 0 && (
               <div>{courante.points_ouverts.length} point(s) ouvert(s), non couvert(s) par les critères.</div>
             )}
+            {courante.defauts.some((d) => !d.validation) && (
+              <div>{courante.defauts.filter((d) => !d.validation).length} défaut(s) de la revue jamais examiné(s).</div>
+            )}
+            {courante.defauts.filter((d) => d.validation === "ECARTE").map((d) => (
+              <div key={"d" + d.id}>{d.code} écarté — « {d.motif_validation} »</div>
+            ))}
             {courante.couverture.filter((p) => p.statut === "JUSTIFIEE").map((p) => (
               <div key={"ph" + p.id}>Phrase {p.numero} non reprise — « {p.motif} »</div>
             ))}

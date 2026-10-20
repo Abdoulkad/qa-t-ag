@@ -124,7 +124,9 @@ def _analyser(db: Session, tache: TacheIA) -> None:
     version.modele_ia = config.modele
     version.rapport_revue = rapport
     version.code_controle_revue = controle["code"]
-    version.controle_revue = "\n".join(controle["corrections"] + controle["erreurs"]) \
+    version.controle_revue = "\n".join(
+        controle["corrections"] + controle["erreurs"] +
+        ["Doublon signalé : %s" % x for x in controle.get("doublons", [])]) \
         or "Citations toutes vérifiées"
     version.score_clarte = regles.score_clarte([d["gravite"] for d in controle["defauts"]])
 
@@ -132,7 +134,8 @@ def _analyser(db: Session, tache: TacheIA) -> None:
     for d in controle["defauts"]:
         defaut = Defaut(version_id=version.id, code=d["code"], categorie=d["categorie"],
                         gravite=d["gravite"], section=d["section"], citation=d["citation"],
-                        citation_verifiee=d["citation_verifiee"])
+                        citation_verifiee=d["citation_verifiee"],
+                        constat=d.get("constat"), justification=d.get("justification"))
         db.add(defaut)
         db.flush()
         if d["question"]:
@@ -140,12 +143,19 @@ def _analyser(db: Session, tache: TacheIA) -> None:
             db.add(QuestionMetier(version_id=version.id, defaut_id=defaut.id, code="Q-%d" % n,
                                   question=d["question"],
                                   bloquante=d["gravite"] == "Bloquante"))
+    for qc in controle.get("complementaires", []):       # QA-REV-02 §7 : jamais bloquantes
+        n += 1
+        db.add(QuestionMetier(version_id=version.id, code="Q-%d" % n, question=qc["question"],
+                              nature="COMPLEMENTAIRE", sujet=qc["sujet"],
+                              pourquoi=qc["pourquoi"], bloquante=False))
 
     regles.verifier_transition(mission.statut, "CLARIFICATION")
     mission.statut = "CLARIFICATION"
     journal.ajouter(db, mission.organisation_id, "analyse_terminee", mission_id=mission.id,
                     agent="AG-01", details={
                         "version": version.numero, "defauts": len(controle["defauts"]),
+                        "questions_complementaires": len(controle.get("complementaires", [])),
+                        "doublons": controle.get("doublons", []),
                         "score_clarte": version.score_clarte,
                         "controle": controle["code"],
                         "ia": "%s/%s" % (config.fournisseur, config.modele)})
@@ -159,7 +169,8 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
     questions = [{"code": q.code, "question": q.question, "reponse": q.reponse,
                   "decision": q.decision} for q in version.questions]
     defauts = [{"code": d.code, "categorie": d.categorie, "gravite": d.gravite,
-                "citation": d.citation} for d in version.defauts]
+                "citation": d.citation, "constat": d.constat}
+               for d in version.defauts if d.validation != "ECARTE"]     # RA-50
     repondues = [q["code"] for q in questions if (q["reponse"] or "").strip()]
 
     def controler(sortie):
