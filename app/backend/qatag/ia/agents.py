@@ -44,32 +44,54 @@ def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]
                 and q.get("decision") != "HORS_PERIMETRE"]
     if ouvertes:
         lignes += ["", "## Questions sans réponse ou reportées (PAS des sources : "
-                       "aucun critère dessus, range chaque sujet dans « ## Points ouverts ». "
-                       "Un critère qui en cite une est marqué hypothèse, même s'il a "
-                       "d'autres sources)"]
+                       "aucune règle ni critère dessus, range chaque sujet dans « ## Points "
+                       "ouverts ». Un élément qui en cite une est marqué hypothèse, même s'il "
+                       "a d'autres sources)"]
         lignes += ["- %s — %s%s" % (q["code"], q["question"],
                                     " (reportée)" if q.get("decision") == "REPORTEE" else "")
                    for q in ouvertes]
-    lignes += ["", "Réécris l'exigence en respectant EXACTEMENT ce format, sans rien avant ni "
-                   "après, sans bloc de code. N'invente aucune règle métier.", "",
-               "## Exigence réécrite",
-               "<l'exigence réécrite>", "",
+    lignes += ["", "Réécris la User Story en respectant EXACTEMENT ce format, sans rien avant "
+                   "ni après, sans bloc de code. N'invente aucune règle métier.",
+               "- Préserve le besoin et l'intention de la User Story d'origine.",
+               "- Sépare la User Story, les règles métier (ce que le métier impose) et les "
+               "critères d'acceptation (ce qu'on vérifie).",
+               "- Chaque règle cite le passage d'origine qu'elle précise, mot pour mot entre "
+               "« », et la réponse Q-n qui la précise s'il y en a une.",
+               "- Chaque phrase de l'exigence d'origine doit être reprise par au moins une "
+               "règle ou un critère (citée entre « »), ou rangée dans les points ouverts.",
+               "",
+               "## User Story réécrite",
+               "<la User Story réécrite : En tant que …, je veux …, afin de …>", "",
+               "## Règles métier",
+               "### RG-01",
+               "- **Règle** : <règle de gestion>",
+               "- **Sources** : « passage exact de l'exigence d'origine » ; Q-1", "",
                "## Critères d'acceptation",
                "### CA-01",
                "- **Critère** : Étant donné …, quand …, alors …",
-               "- **Sources** : « passage exact de l'exigence d'origine » ; Q-1",
+               "- **Règles** : RG-01",
                "### CA-02",
                "- **Critère** : …",
-               "- **Sources** : Q-2", "",
+               "- **Sources** : « passage exact de l'exigence d'origine »", "",
                "## Points ouverts",
-               "- <sujet sans source, donc pas un critère> (Q-3)", "",
-               "(La section « Points ouverts » est facultative.)"]
+               "- <sujet sans source, donc ni règle ni critère> (Q-3)", "",
+               "(« Règles métier » est obligatoire : écris « Aucune » s'il n'y en a pas. "
+               "Un critère s'appuie sur ses règles, sur ses propres sources, ou les deux. "
+               "« Points ouverts » est facultative.)"]
     return "\n".join(lignes)
 
 
-def consigne_conception(texte_reecrit: str, criteres: list[dict], origine: str) -> str:
-    lignes = ["## Exigence validée (PV-1)", texte_reecrit, "", "## Critères d'acceptation"]
-    lignes += ["- %s : %s" % (c["code"], c["texte"]) for c in criteres]
+def consigne_conception(texte_reecrit: str, criteres: list[dict], origine: str,
+                        regles: list[dict] | None = None) -> str:
+    lignes = ["## Exigence validée (PV-1)", texte_reecrit, ""]
+    if regles:
+        lignes += ["## Règles métier validées"]
+        lignes += ["- %s : %s" % (r["code"], r["texte"]) for r in regles]
+        lignes += [""]
+    lignes += ["## Critères d'acceptation"]
+    lignes += ["- %s : %s%s" % (c["code"], c["texte"],
+                                " (vérifie %s)" % ", ".join(c["regles"]) if c.get("regles") else "")
+               for c in criteres]
     lignes += ["", "## Exigence d'origine (pour les identifiants REQ/BR éventuels)", origine, "",
                "Conçois les cas de test. Contraintes STRICTES :",
                "1) Sors d'abord UNIQUEMENT le CSV brut, première ligne exactement : "

@@ -4,7 +4,7 @@ import { MessageErreur, useAction } from "../../composants";
 import { useSession } from "../../session";
 
 const QUOI = {
-  "PV-1": "Validez l'exigence réécrite et ses critères d'acceptation. L'agent concevra ensuite les cas de test à partir de cette version.",
+  "PV-1": "Validez la User Story réécrite, ses règles métier et ses critères d'acceptation. L'agent concevra ensuite les cas de test à partir de cette version.",
   "PV-2": "Validez les cas de test. Une fois validés, ils ne sont plus modifiables et la recette peut commencer.",
 };
 
@@ -43,12 +43,16 @@ export default function Porte({ mission: m, recharger }: {
             <ul className="bloquants">{m.bloquants_porte.map((b) => <li key={b}>{b}</li>)}</ul>
           </div>
         )}
-        {porte === "PV-1" && (courante.points_ouverts.length > 0 || courante.questions.some((q) => q.decision)) && (
+        {porte === "PV-1" && (courante.points_ouverts.length > 0 || courante.questions.some((q) => q.decision)
+          || courante.couverture.some((p) => p.statut === "JUSTIFIEE")) && (
           <div className="message-info">
             <strong>À savoir avant de décider</strong>
             {courante.points_ouverts.length > 0 && (
               <div>{courante.points_ouverts.length} point(s) ouvert(s), non couvert(s) par les critères.</div>
             )}
+            {courante.couverture.filter((p) => p.statut === "JUSTIFIEE").map((p) => (
+              <div key={"ph" + p.id}>Phrase {p.numero} non reprise — « {p.motif} »</div>
+            ))}
             {courante.questions.filter((q) => q.decision).map((q) => (
               <div key={q.id}>{q.code} : {q.decision === "HORS_PERIMETRE" ? "hors périmètre" : "reportée"} — « {q.motif_decision} »</div>
             ))}

@@ -53,7 +53,7 @@ def test_tracabilite_et_couverture(client, admin, ia):
     assert matrice["CA-01"] == ["CT-001", "CT-002"]
     assert matrice["CA-02"] == ["CT-003", "CT-004"]
     assert matrice["REQ-001"] == []          # REQ de l'origine non citée par un cas
-    assert t["couverture"] == 67
+    assert t["couverture"] == 80          # CA-01, CA-02, RG-01, RG-02 couverts ; REQ-001 non
     assert t["par_technique"] == {"valeurs limites": 3, "partitions d'équivalence": 1}
 
 

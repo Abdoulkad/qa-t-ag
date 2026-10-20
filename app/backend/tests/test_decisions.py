@@ -105,7 +105,8 @@ def test_ecarter_plusieurs_hypotheses_en_une_fois(client, admin, ia):
     r = client.request("DELETE", "/api/missions/%d/criteres" % mid, headers=admin,
                        json={"ids": hyp, "motif": "Hors périmètre du lot"})
     assert r.json() == {"ecartes": 2}
-    assert _detail(client, admin, mid)["bloquants_porte"] == []
+    # CA-02 écarté : RG-02 n'est plus vérifiée par aucun critère (RA-47)
+    assert _detail(client, admin, mid)["bloquants_porte"] == ["RG-02 : règle vérifiée par aucun critère"]
     evts = [e for e in client.get("/api/missions/%d/journal" % mid, headers=admin).json()
             if e["evenement"] == "critere_ecarte"]
     assert len(evts) == 2

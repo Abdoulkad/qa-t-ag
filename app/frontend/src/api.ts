@@ -145,9 +145,24 @@ export interface Question {
   decide_le: string | null;
 }
 
-export interface Critere {
+export interface ElementSource {
   id: number; code: string; texte: string; sources: string[]; sources_rejetees: string[];
   statut: "SOURCE" | "HYPOTHESE";
+}
+
+export interface Critere extends ElementSource {
+  regles: string[];            // règles métier vérifiées (RG-n)
+}
+
+export interface Regle extends ElementSource {
+  criteres: string[];          // critères qui la vérifient
+}
+
+export type StatutPhrase = "TITRE" | "COUVERTE" | "NON_COUVERTE" | "JUSTIFIEE";
+
+export interface PhraseCouverture {
+  id: number; numero: number; texte: string; statut: StatutPhrase;
+  motif: string | null; justifie_le: string | null;
 }
 
 export interface DecisionPorte {
@@ -162,6 +177,7 @@ export interface Version {
   defauts: Defaut[]; questions: Question[]; decisions: DecisionPorte[];
   texte_reecrit: string | null; controle_reecriture: string | null;
   controle_conception: string | null; criteres: Critere[]; points_ouverts: string[];
+  regles: Regle[]; couverture: PhraseCouverture[];
   cree_le: string;
 }
 
@@ -211,6 +227,7 @@ export interface ConfigIA {
 
 export interface Tracabilite {
   matrice: { reference: string; libelle: string; cas: string[] }[];
+  regles: { code: string; texte: string; criteres: string[]; cas: string[] }[];
   couverture: number | null;
   cas_sans_reference: string[];
   par_technique: Record<string, number>;

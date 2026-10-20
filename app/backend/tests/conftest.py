@@ -61,16 +61,26 @@ A_CLARIFIER
 """
 
 
-REECRITURE_IA = """## Exigence réécrite
+REECRITURE_IA = """## User Story réécrite
 En tant qu'utilisateur ayant oublié son mot de passe, je reçois un lien de
 réinitialisation valable 30 minutes et je définis un nouveau mot de passe.
+
+## Règles métier
+### RG-01
+- **Règle** : L'utilisateur réinitialise son mot de passe par un lien valable une durée limitée.
+- **Sources** : « réinitialiser son mot de passe facilement » ; « durée limitée »
+### RG-02
+- **Règle** : Le nouveau mot de passe respecte la politique de sécurité.
+- **Sources** : « le nouveau mot de passe doit être sécurisé »
 
 ## Critères d'acceptation
 ### CA-01
 - **Critère** : Étant donné un lien émis il y a 31 minutes, quand je l'ouvre, alors il est refusé.
+- **Règles** : RG-01
 - **Sources** : « durée limitée » ; Q-1
 ### CA-02
 - **Critère** : Étant donné un nouveau mot de passe de 7 caractères, quand je valide, alors il est refusé.
+- **Règles** : RG-02
 - **Sources** : Q-2
 ### CA-03
 - **Critère** : Étant donné une réinitialisation réussie, alors un SMS de confirmation est envoyé.

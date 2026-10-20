@@ -146,7 +146,8 @@ def test_titres_en_forme_libre_acceptes_sources_toujours_verifiees(client, admin
     mid = _mission(client, admin)
     _repondre(client, admin, mid, "Q-1", "30 minutes")
     ia.reponses["reecriture"] = (ia.reponses["reecriture"]
-                                 .replace("## Exigence réécrite", "### 1. **Exigence réécrite :**")
+                                 .replace("## User Story réécrite", "### 1. **Exigence réécrite :**")
+                                 .replace("## Règles métier", "## 2. Règles de gestion")
                                  .replace("## Critères d'acceptation", "## Critères d’acceptation"))
     client.post("/api/missions/%d/reecriture" % mid, headers=admin)
     m = _detail(client, admin, mid)

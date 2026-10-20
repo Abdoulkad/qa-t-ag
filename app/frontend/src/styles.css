@@ -380,3 +380,13 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 }
 @keyframes tourne { to { transform: rotate(360deg); } }
 .discret-texte { color: var(--encre-pale); font-size: 0.85rem; }
+
+/* Couverture du texte d'origine (RA-48) */
+.phrases-origine { line-height: 1.7; }
+.phrase { padding: 1px 2px; border-radius: 3px; }
+.phrase.couverte { border-bottom: 2px solid var(--succes); }
+.phrase.non-couverte { background: var(--alerte-pale); border-bottom: 2px solid var(--alerte); }
+.phrase.justifiee { border-bottom: 2px dashed var(--encre-pale); }
+.phrase.titre { color: var(--encre-pale); }
+.legende { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; margin-top: 8px; }
+.lien-element { font-size: 0.8rem; color: var(--encre-douce); margin-top: 6px; }

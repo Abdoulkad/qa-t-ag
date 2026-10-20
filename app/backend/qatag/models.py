@@ -119,6 +119,8 @@ class VersionExigence(Base):
     defauts: Mapped[list["Defaut"]] = relationship(order_by="Defaut.code")
     questions: Mapped[list["QuestionMetier"]] = relationship(order_by="QuestionMetier.id")
     criteres: Mapped[list["CritereAcceptation"]] = relationship(order_by="CritereAcceptation.code")
+    regles: Mapped[list["RegleMetier"]] = relationship(order_by="RegleMetier.code")
+    phrases: Mapped[list["PhraseSource"]] = relationship(order_by="PhraseSource.numero")
 
     __table_args__ = (UniqueConstraint("mission_id", "numero", name="uq_version_numero"),)
 
@@ -157,6 +159,36 @@ class QuestionMetier(Base):
         name="ck_question_decision"),)
 
 
+class RegleMetier(Base):
+    """RA-47 : règle de gestion de la User Story réécrite, sourcée comme un critère."""
+    __tablename__ = "regle_metier"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version_id: Mapped[int] = mapped_column(ForeignKey("version_exigence.id"), index=True)
+    code: Mapped[str] = mapped_column(String(20))
+    texte: Mapped[str] = mapped_column(Text)
+    sources: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    sources_rejetees: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    statut: Mapped[str] = mapped_column(String(20))
+    __table_args__ = (CheckConstraint(_dans("statut", ("SOURCE", "HYPOTHESE")),
+                                      name="ck_regle_statut"),
+                      UniqueConstraint("version_id", "code", name="uq_regle_code"))
+
+
+class PhraseSource(Base):
+    """RA-48 : phrase du texte d'origine ; une phrase non reprise est justifiée par
+    l'humain. La couverture elle-même est recalculée, jamais stockée."""
+    __tablename__ = "phrase_source"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version_id: Mapped[int] = mapped_column(ForeignKey("version_exigence.id"), index=True)
+    numero: Mapped[int] = mapped_column(Integer)
+    texte: Mapped[str] = mapped_column(Text)
+    titre: Mapped[bool] = mapped_column(Boolean, default=False)
+    motif_non_reprise: Mapped[str | None] = mapped_column(Text)
+    justifie_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    justifie_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (UniqueConstraint("version_id", "numero", name="uq_phrase_numero"),)
+
+
 class CritereAcceptation(Base):
     __tablename__ = "critere_acceptation"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -165,6 +197,7 @@ class CritereAcceptation(Base):
     texte: Mapped[str] = mapped_column(Text)
     sources: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     sources_rejetees: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    regles: Mapped[list[str]] = mapped_column(ARRAY(String(20)), default=list)  # RG vérifiées
     statut: Mapped[str] = mapped_column(String(20))
     __table_args__ = (CheckConstraint(_dans("statut", ("SOURCE", "HYPOTHESE")),
                                       name="ck_critere_statut"),)

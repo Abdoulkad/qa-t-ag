@@ -20,6 +20,7 @@ from .config import parametres
 from .db import SessionLocale
 from .ia import agents, fournisseurs
 from .models import (CasTest, ConfigIA, CritereAcceptation, Defaut, Mission, QuestionMetier,
+                     RegleMetier,
                      TacheIA, Trace, VersionExigence, maintenant)
 
 # Statut de mission pendant la tâche -> statut si la tâche échoue
@@ -170,22 +171,41 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
         agents.consigne_reecriture(version.texte, defauts, questions), controler)
 
     db.execute(delete(CritereAcceptation).where(CritereAcceptation.version_id == version.id))
+    db.execute(delete(RegleMetier).where(RegleMetier.version_id == version.id))
+    for r in controle["regles"]:                                       # RA-47
+        db.add(RegleMetier(version_id=version.id, code=r["code"], texte=r["texte"],
+                           sources=r["sources"], sources_rejetees=r["sources_rejetees"],
+                           statut=r["statut"]))
     for c in controle["criteres"]:
         db.add(CritereAcceptation(version_id=version.id, code=c["code"], texte=c["texte"],
                                   sources=c["sources"], sources_rejetees=c["sources_rejetees"],
-                                  statut=c["statut"]))
+                                  regles=c["regles"], statut=c["statut"]))
     version.texte_reecrit = controle["texte"]
     version.points_ouverts = controle["points"]                        # RA-43
-    hypotheses = [c["code"] for c in controle["criteres"] if c["statut"] == "HYPOTHESE"]
-    version.controle_reecriture = (
-        "Hypothèses à trancher : %s" % ", ".join(hypotheses) if hypotheses
-        else "Tous les critères sont sourcés")
+    db.flush()
+    db.refresh(version)
+    from . import missions          # import local : missions importe ce module
+    missions.assurer_phrases(db, version)                              # RA-48
+    hypotheses = [e["code"] for e in controle["regles"] + controle["criteres"]
+                  if e["statut"] == "HYPOTHESE"]
+    non_reprises = [ph["numero"] for ph in missions.couverture(version)
+                    if ph["statut"] == "NON_COUVERTE"]
+    constats = []
+    if hypotheses:
+        constats.append("Hypothèses à trancher : %s" % ", ".join(hypotheses))
+    if non_reprises:
+        constats.append("Phrases du texte d'origine non reprises : %s"
+                        % ", ".join(str(n) for n in non_reprises))
+    version.controle_reecriture = " · ".join(constats) or \
+        "Règles et critères sourcés ; tout le texte d'origine est repris"
 
     regles.verifier_transition(mission.statut, "ATTENTE_PV1")
     mission.statut = "ATTENTE_PV1"
     journal.ajouter(db, mission.organisation_id, "reecriture_terminee", mission_id=mission.id,
-                    details={"version": version.numero, "criteres": len(controle["criteres"]),
-                             "hypotheses": hypotheses, "points_ouverts": len(controle["points"]),
+                    details={"version": version.numero, "regles": len(controle["regles"]),
+                             "criteres": len(controle["criteres"]),
+                             "hypotheses": hypotheses, "phrases_non_reprises": non_reprises,
+                             "points_ouverts": len(controle["points"]),
                              "ia": "%s/%s" % (config.fournisseur, config.modele)})
 
 
@@ -194,8 +214,10 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    criteres = [{"code": c.code, "texte": c.texte} for c in version.criteres]
+    criteres = [{"code": c.code, "texte": c.texte, "regles": c.regles} for c in version.criteres]
+    regles_metier = [{"code": r.code, "texte": r.texte} for r in version.regles]
     reference = "\n\n".join([version.texte, version.texte_reecrit or ""] +
+                            ["%s : %s" % (r["code"], r["texte"]) for r in regles_metier] +
                             ["%s : %s" % (c["code"], c["texte"]) for c in criteres])
 
     def controler(sortie):
@@ -210,7 +232,8 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
         return c, []
     _, controle, _ = _generer_au_format(
         config, agents.prompt_skill("qa-conception"),
-        agents.consigne_conception(version.texte_reecrit or version.texte, criteres, version.texte),
+        agents.consigne_conception(version.texte_reecrit or version.texte, criteres, version.texte,
+                                   regles_metier),
         controler)
     justifications = controle["justifications"]
 

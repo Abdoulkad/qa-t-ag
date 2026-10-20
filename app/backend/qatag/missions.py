@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from . import journal, regles, scripts_qa, taches
 from .models import (CasTest, ConfigIA, CritereAcceptation, DecisionPorte, Mission, Participant,
-                     QuestionMetier, Trace, Utilisateur, VersionExigence, maintenant)
+                     PhraseSource, QuestionMetier, RegleMetier, Trace, Utilisateur,
+                     VersionExigence, maintenant)
 from .regles import RegleViolee
 
 
@@ -95,16 +96,77 @@ def ajouter_participant(db: Session, acteur: Utilisateur, m: Mission, email: str
     return cible
 
 
+def _motif_hypothese(code: str, rejetees: list[str], nature: str) -> str:
+    if rejetees:
+        return "%s : source non valable (%s)" % (code, ", ".join(rejetees))
+    return "%s : %s sans source (hypothèse)" % (code, nature)
+
+
+def _court(texte: str, n: int = 90) -> str:
+    return texte if len(texte) <= n else texte[:n].rstrip() + "…"
+
+
+def couverture(v: VersionExigence) -> list[dict]:
+    """RA-48 : chaque phrase du texte d'origine est reprise par une citation valide
+    d'une règle ou d'un critère restant, ou justifiée par l'humain. Recalculé à
+    chaque lecture : écarter une règle peut découvrir une phrase."""
+    citations = [s for e in list(v.regles) + list(v.criteres) for s in e.sources
+                 if s.startswith("«")]
+    resultat = []
+    for ph in v.phrases:
+        if ph.titre:
+            statut = "TITRE"
+        elif scripts_qa.phrase_couverte(ph.texte, citations):
+            statut = "COUVERTE"
+        elif ph.motif_non_reprise:
+            statut = "JUSTIFIEE"
+        else:
+            statut = "NON_COUVERTE"
+        resultat.append({"id": ph.id, "numero": ph.numero, "texte": ph.texte, "statut": statut,
+                         "motif": ph.motif_non_reprise, "justifie_le": ph.justifie_le})
+    return resultat
+
+
+def assurer_phrases(db: Session, v: VersionExigence) -> None:
+    """Découpe le texte d'origine une seule fois par version : les justifications
+    humaines survivent aux réécritures successives."""
+    if v.phrases:
+        return
+    for ph in scripts_qa.phrases_source(v.texte):
+        db.add(PhraseSource(version_id=v.id, numero=ph["numero"], texte=ph["texte"],
+                            titre=ph["titre"]))
+    db.flush()
+    db.refresh(v)
+
+
 def bloquants_porte(db: Session, porte: str, v: VersionExigence) -> tuple[str, list[str]]:
     """Ce qui empêche d'approuver une porte : (règle, liste d'éléments)."""
     if porte == "PV-1":
-        hypotheses = db.execute(select(CritereAcceptation.code, CritereAcceptation.sources_rejetees)
-                                .where(CritereAcceptation.version_id == v.id,
-                                       CritereAcceptation.statut == "HYPOTHESE")
-                                .order_by(CritereAcceptation.code)).all()
-        return "RA-20", [("%s : source non valable (%s)" % (c, ", ".join(rej))) if rej
-                         else "%s : critère sans source (hypothèse)" % c
-                         for c, rej in hypotheses]
+        elements: list[str] = []
+        regle = None
+        for r in v.regles:                                       # RA-47 + RA-20
+            if r.statut == "HYPOTHESE":
+                regle = regle or "RA-20"
+                elements.append(_motif_hypothese(r.code, r.sources_rejetees, "règle"))
+        codes_regles = {r.code for r in v.regles}
+        verifiees = {code for c in v.criteres for code in c.regles}
+        for r in v.regles:                                       # RA-47 : RG → CA
+            if r.code not in verifiees:
+                regle = regle or "RA-47"
+                elements.append("%s : règle vérifiée par aucun critère" % r.code)
+        for c in v.criteres:
+            if c.statut == "HYPOTHESE":
+                regle = regle or "RA-20"
+                elements.append(_motif_hypothese(c.code, c.sources_rejetees, "critère"))
+            ecartees = [code for code in c.regles if code not in codes_regles]
+            if ecartees:
+                regle = regle or "RA-47"
+                elements.append("%s : vérifie une règle écartée (%s)" % (c.code, ", ".join(ecartees)))
+        for ph in couverture(v):                                 # RA-48
+            if ph["statut"] == "NON_COUVERTE":
+                regle = regle or "RA-48"
+                elements.append("Phrase %d non reprise : « %s »" % (ph["numero"], _court(ph["texte"])))
+        return regle or "RA-20", elements
     cas = db.execute(select(CasTest.code, CasTest.statut).where(
         CasTest.version_id == v.id).order_by(CasTest.code)).all()
     if not cas:
@@ -252,6 +314,47 @@ def ecarter_criteres(db: Session, u: Utilisateur, m: Mission, ids: list[int],
         db.delete(c)
     db.commit()
     return len(criteres)
+
+
+def ecarter_regles(db: Session, u: Utilisateur, m: Mission, ids: list[int], motif: str) -> int:
+    """RA-47 : l'humain écarte une ou plusieurs règles métier, avec un motif commun.
+    Les critères qui les vérifient sont alors signalés à PV-1."""
+    v = _version_modifiable(m, ("ATTENTE_PV1",), "Écarter une règle")
+    if not (motif or "").strip():
+        raise RegleViolee("RA-47", "Écarter une règle doit être motivé")
+    regles_ = [db.get(RegleMetier, i) for i in dict.fromkeys(ids)]
+    if not regles_ or any(r is None or r.version_id != v.id for r in regles_):
+        raise RegleViolee("RA-05", "Règle introuvable sur la version courante")
+    for r in regles_:
+        journal.ajouter(db, m.organisation_id, "regle_ecartee", mission_id=m.id,
+                        acteur_id=u.id, details={"regle": r.code, "texte": r.texte,
+                                                 "statut": r.statut, "motif": motif.strip()})
+        db.delete(r)
+    db.commit()
+    return len(regles_)
+
+
+def justifier_phrases(db: Session, u: Utilisateur, m: Mission, ids: list[int],
+                      motif: str | None) -> int:
+    """RA-48 : l'humain déclare qu'une phrase du texte d'origine n'est volontairement
+    pas reprise, avec un motif ; motif None annule. Groupable (RA-44)."""
+    v = _version_modifiable(m, ("ATTENTE_PV1",), "Justifier une phrase non reprise")
+    if motif is not None and not motif.strip():
+        raise RegleViolee("RA-48", "Une phrase non reprise doit être justifiée par un motif")
+    phrases = [db.get(PhraseSource, i) for i in dict.fromkeys(ids)]
+    if not phrases or any(p is None or p.version_id != v.id for p in phrases):
+        raise RegleViolee("RA-05", "Phrase introuvable sur la version courante")
+    for ph in phrases:
+        ph.motif_non_reprise = motif.strip() if motif else None
+        ph.justifie_par_id = u.id if motif else None
+        ph.justifie_le = maintenant() if motif else None
+        journal.ajouter(db, m.organisation_id,
+                        "phrase_non_reprise_justifiee" if motif else "justification_phrase_annulee",
+                        mission_id=m.id, acteur_id=u.id,
+                        details={"phrase": ph.numero, "texte": ph.texte,
+                                 "motif": ph.motif_non_reprise})
+    db.commit()
+    return len(phrases)
 
 
 def ecarter_critere(db: Session, u: Utilisateur, m: Mission, critere_id: int, motif: str) -> None:

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type Critere, type Mission, type Question, type Version } from "../../api";
+import { api, type ElementSource, type Mission, type PhraseCouverture, type Question, type Version } from "../../api";
 import { MessageErreur, Pastille, useAction } from "../../composants";
 import { date, DECISION_QUESTION } from "../../libelles";
 
@@ -21,7 +21,6 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
   const reecriture = useAction();
   const bloquantesSansReponse = v.questions.filter((q) => q.bloquante && !q.reponse && !q.decision);
   const [selQuestions, setSelQuestions] = useState<number[]>([]);
-  const [selCriteres, setSelCriteres] = useState<number[]>([]);
   const basculer = (liste: number[], fixer: (l: number[]) => void, id: number) =>
     fixer(liste.includes(id) ? liste.filter((x) => x !== id) : [...liste, id]);
   const ecartable = modifiable && !v.figee && m.statut === "ATTENTE_PV1";
@@ -137,49 +136,49 @@ export default function Exigence({ mission: m, version: v, modifiable, recharger
       {/* --- Réécrire ----------------------------------------------------- */}
       {v.texte_reecrit && (
         <section>
-          <h2 style={{ marginBottom: 10 }}>Exigence réécrite</h2>
+          <h2 style={{ marginBottom: 10 }}>User Story réécrite</h2>
           <div className="cote-a-cote">
             <div>
               <div className="etiquette" style={{ marginBottom: 6 }}>Texte d'origine</div>
-              <div className="texte-exigence">{v.texte}</div>
+              <TexteOrigine texte={v.texte} couverture={v.couverture} />
             </div>
             <div>
               <div className="etiquette" style={{ marginBottom: 6 }}>Proposition de l'agent</div>
               <div className="texte-exigence">{v.texte_reecrit}</div>
             </div>
           </div>
-          <h3 style={{ margin: "18px 0 8px" }}>Critères d'acceptation</h3>
-          {ecartable && selCriteres.length > 0 && (
-            <BarreDecision nombre={selCriteres.length} objet="critère"
-              options={[{ valeur: "ECARTER", libelle: "Écarter" }]}
-              appliquer={async (_d, motif) => {
-                await api(`/missions/${m.id}/criteres`, { methode: "DELETE", corps: { ids: selCriteres, motif } });
-                setSelCriteres([]); recharger();
-              }} annuler={() => setSelCriteres([])} />
+
+          {v.couverture.length > 0 && (
+            <Couverture missionId={m.id} phrases={v.couverture} modifiable={ecartable} recharger={recharger} />
           )}
-          <div className="panneau">
-            {ecartable && v.criteres.filter((c) => c.statut === "HYPOTHESE").length > 1 && (
-              <div className="critere" style={{ padding: "8px 18px" }}>
-                <label className="rangee discret-texte" style={{ gap: 8 }}>
-                  <input type="checkbox"
-                         checked={v.criteres.filter((c) => c.statut === "HYPOTHESE").every((c) => selCriteres.includes(c.id))}
-                         onChange={(e) => setSelCriteres(e.target.checked
-                           ? v.criteres.filter((c) => c.statut === "HYPOTHESE").map((c) => c.id) : [])} />
-                  Sélectionner toutes les hypothèses
-                </label>
-              </div>
-            )}
-            {v.criteres.map((c) => (
-              <CritereLigne key={c.id} c={c} missionId={m.id} ecartable={ecartable} recharger={recharger}
-                            selectionne={selCriteres.includes(c.id)}
-                            basculer={() => basculer(selCriteres, setSelCriteres, c.id)} />
-            ))}
-          </div>
+
+          <h3 style={{ margin: "18px 0 4px" }}>Règles métier</h3>
+          <p className="discret-texte" style={{ marginBottom: 8 }}>
+            Ce que le métier impose. Chaque règle cite sa source ; c'est la partie à faire relire par le métier.
+          </p>
+          <ListeElements objet="règle" chemin="regles" elements={v.regles} missionId={m.id}
+                         ecartable={ecartable} recharger={recharger} vide="Aucune règle métier dans cette version."
+                         lien={(e) => {
+                           const crit = v.regles.find((r) => r.id === e.id)?.criteres ?? [];
+                           return crit.length ? "Vérifiée par " + crit.join(", ") : "Vérifiée par aucun critère";
+                         }} />
+
+          <h3 style={{ margin: "18px 0 4px" }}>Critères d'acceptation</h3>
+          <p className="discret-texte" style={{ marginBottom: 8 }}>Ce qu'on vérifie. Les cas de test seront conçus à partir de ces critères.</p>
+          <ListeElements objet="critère" chemin="criteres" elements={v.criteres} missionId={m.id}
+                         ecartable={ecartable} recharger={recharger} vide="Aucun critère."
+                         lien={(e) => {
+                           const regs = v.criteres.find((c) => c.id === e.id)?.regles ?? [];
+                           const ecartees = regs.filter((r) => !v.regles.some((x) => x.code === r));
+                           if (!regs.length) return null;
+                           return "Vérifie " + regs.join(", ") + (ecartees.length ? " — règle écartée : " + ecartees.join(", ") : "");
+                         }} />
+
           {v.points_ouverts.length > 0 && (
             <>
               <h3 style={{ margin: "18px 0 4px" }}>Points ouverts</h3>
               <p className="discret-texte" style={{ marginBottom: 8 }}>
-                Sujets que l'agent n'a pas transformés en critères, faute de source. Ils ne bloquent pas PV-1 :
+                Sujets que l'agent n'a transformés ni en règle ni en critère, faute de source. Ils ne bloquent pas PV-1 :
                 le valideur les voit au moment de décider, et ils restent hors des cas de test.
               </p>
               <div className="panneau">
@@ -275,6 +274,8 @@ function QuestionLigne({ q, missionId, modifiable, recharger, selectionnee, basc
   );
 }
 
+const FEMININ = ["question", "règle", "phrase"];
+
 /** Barre d'action groupée : une décision et un motif communs, une ligne de journal par élément. */
 function BarreDecision({ nombre, objet, options, appliquer, annuler }: {
   nombre: number; objet: string; options: { valeur: string; libelle: string }[];
@@ -284,7 +285,7 @@ function BarreDecision({ nombre, objet, options, appliquer, annuler }: {
   const action = useAction();
   return (
     <div className="message-info pile" style={{ gap: 8, marginBottom: 10 }}>
-      <strong>{nombre} {objet}{nombre > 1 ? "s" : ""} sélectionné{objet === "question" ? "e" : ""}{nombre > 1 ? "s" : ""}</strong>
+      <strong>{nombre} {objet}{nombre > 1 ? "s" : ""} sélectionné{FEMININ.includes(objet) ? "e" : ""}{nombre > 1 ? "s" : ""}</strong>
       <div className="rangee">
         <input type="text" value={motif} onChange={(e) => setMotif(e.target.value)} style={{ flex: 1, minWidth: 220 }}
                placeholder="Motif commun (obligatoire)" aria-label="Motif commun" />
@@ -337,49 +338,193 @@ function Precision({ missionId, recharger }: { missionId: number; recharger: () 
   );
 }
 
-function CritereLigne({ c, missionId, ecartable, recharger, selectionne, basculer }: {
-  c: Critere; missionId: number; ecartable: boolean; recharger: () => void;
-  selectionne: boolean; basculer: () => void;
+const CLASSE_PHRASE: Record<string, string> = {
+  COUVERTE: "couverte", NON_COUVERTE: "non-couverte", JUSTIFIEE: "justifiee", TITRE: "titre",
+};
+
+/** Texte d'origine, phrase par phrase, coloré selon sa reprise (RA-48). */
+function TexteOrigine({ texte, couverture }: { texte: string; couverture: PhraseCouverture[] }) {
+  if (!couverture.length) return <div className="texte-exigence">{texte}</div>;
+  return (
+    <div className="texte-exigence phrases-origine" style={{ whiteSpace: "normal" }}>
+      {couverture.map((p) => (
+        <span key={p.id}>
+          <span className={"phrase " + CLASSE_PHRASE[p.statut]}
+                title={p.statut === "NON_COUVERTE" ? `Phrase ${p.numero} : reprise par aucune règle ni aucun critère`
+                  : p.statut === "JUSTIFIEE" ? `Non reprise volontairement : ${p.motif}`
+                  : p.statut === "TITRE" ? "Titre : non contrôlé" : `Phrase ${p.numero} : reprise`}>
+            {p.texte}
+          </span>{" "}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Couverture({ missionId, phrases, modifiable, recharger }: {
+  missionId: number; phrases: PhraseCouverture[]; modifiable: boolean; recharger: () => void;
 }) {
-  const [ecarter, setEcarter] = useState(false);
+  const [sel, setSel] = useState<number[]>([]);
+  const annuler = useAction();
+  const controlees = phrases.filter((p) => p.statut !== "TITRE");
+  const reprises = controlees.filter((p) => p.statut === "COUVERTE").length;
+  const aTraiter = controlees.filter((p) => p.statut === "NON_COUVERTE");
+  const justifiees = controlees.filter((p) => p.statut === "JUSTIFIEE");
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="legende">
+        <strong>{reprises}/{controlees.length} phrases reprises</strong>
+        <span><span className="phrase couverte">reprise</span></span>
+        <span><span className="phrase non-couverte">non reprise</span></span>
+        <span><span className="phrase justifiee">non reprise, justifiée</span></span>
+      </div>
+      {(aTraiter.length > 0 || justifiees.length > 0) && (
+        <div className="pile" style={{ marginTop: 10, gap: 8 }}>
+          {modifiable && sel.length > 0 && (
+            <BarreDecision nombre={sel.length} objet="phrase"
+              options={[{ valeur: "JUSTIFIER", libelle: "Non reprise volontairement" }]}
+              appliquer={async (_d, motif) => {
+                await api(`/missions/${missionId}/phrases-justification`, { methode: "PUT", corps: { ids: sel, motif } });
+                setSel([]); recharger();
+              }} annuler={() => setSel([])} />
+          )}
+          <div className="panneau">
+            {aTraiter.length > 0 && (
+              <div className="critere hypothese">
+                <p className="discret-texte" style={{ marginBottom: 6 }}>
+                  Ces phrases du texte d'origine ne sont reprises par aucune règle ni aucun critère. Relancez la réécriture
+                  après avoir précisé le besoin, ou déclarez-les non reprises volontairement, avec un motif.
+                </p>
+                {modifiable && aTraiter.length > 1 && (
+                  <label className="rangee discret-texte" style={{ gap: 8, marginBottom: 4 }}>
+                    <input type="checkbox" checked={aTraiter.every((p) => sel.includes(p.id))}
+                           onChange={(e) => setSel(e.target.checked ? aTraiter.map((p) => p.id) : [])} />
+                    Sélectionner les {aTraiter.length} phrases non reprises
+                  </label>
+                )}
+                {aTraiter.map((p) => (
+                  <label key={p.id} className="rangee" style={{ gap: 8, alignItems: "baseline" }}>
+                    {modifiable && (
+                      <input type="checkbox" checked={sel.includes(p.id)} aria-label={"Sélectionner la phrase " + p.numero}
+                             onChange={() => setSel(sel.includes(p.id) ? sel.filter((x) => x !== p.id) : [...sel, p.id])} />
+                    )}
+                    <span className="ref">Phrase {p.numero}</span>
+                    <span>« {p.texte} »</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {justifiees.map((p) => (
+              <div key={p.id} className="critere">
+                <div className="rangee" style={{ alignItems: "baseline" }}>
+                  <span className="ref">Phrase {p.numero}</span>
+                  <span style={{ flex: 1 }}>« {p.texte} »</span>
+                  <Pastille ton="neutre">Non reprise, justifiée</Pastille>
+                </div>
+                <div className="rangee">
+                  <span className="discret-texte">Le {date(p.justifie_le)} : « {p.motif} »</span>
+                  {modifiable && (
+                    <button className="bouton discret petit" disabled={annuler.enCours}
+                            onClick={() => annuler.lancer(async () => {
+                              await api(`/missions/${missionId}/phrases-justification`,
+                                { methode: "PUT", corps: { ids: [p.id], motif: null } });
+                              recharger();
+                            })}>Annuler la justification</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <MessageErreur erreur={annuler.erreur} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Règles métier ou critères : même contrôle des sources, même écart motivé et groupé. */
+function ListeElements({ objet, chemin, elements, missionId, ecartable, recharger, vide, lien }: {
+  objet: "règle" | "critère"; chemin: "regles" | "criteres"; elements: ElementSource[]; missionId: number;
+  ecartable: boolean; recharger: () => void; vide: string; lien: (e: ElementSource) => string | null;
+}) {
+  const [sel, setSel] = useState<number[]>([]);
+  const hypotheses = elements.filter((e) => e.statut === "HYPOTHESE");
+  const ecarter = async (ids: number[], motif: string) => {
+    await api(`/missions/${missionId}/${chemin}`, { methode: "DELETE", corps: { ids, motif } });
+    setSel([]); recharger();
+  };
+  return (
+    <>
+      {ecartable && sel.length > 0 && (
+        <BarreDecision nombre={sel.length} objet={objet} options={[{ valeur: "ECARTER", libelle: "Écarter" }]}
+                       appliquer={(_d, motif) => ecarter(sel, motif)} annuler={() => setSel([])} />
+      )}
+      <div className="panneau">
+        {elements.length === 0 && <div className="vide">{vide}</div>}
+        {ecartable && hypotheses.length > 1 && (
+          <div className="critere" style={{ padding: "8px 18px" }}>
+            <label className="rangee discret-texte" style={{ gap: 8 }}>
+              <input type="checkbox" checked={hypotheses.every((e) => sel.includes(e.id))}
+                     onChange={(ev) => setSel(ev.target.checked ? hypotheses.map((e) => e.id) : [])} />
+              Sélectionner {objet === "règle" ? "toutes les règles hypothèses" : "toutes les hypothèses"}
+            </label>
+          </div>
+        )}
+        {elements.map((e) => (
+          <ElementLigne key={e.id} e={e} objet={objet} ecartable={ecartable} lien={lien(e)}
+                        selectionne={sel.includes(e.id)}
+                        basculer={() => setSel(sel.includes(e.id) ? sel.filter((x) => x !== e.id) : [...sel, e.id])}
+                        ecarter={(motif) => ecarter([e.id], motif)} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ElementLigne({ e, objet, ecartable, lien, selectionne, basculer, ecarter }: {
+  e: ElementSource; objet: "règle" | "critère"; ecartable: boolean; lien: string | null;
+  selectionne: boolean; basculer: () => void; ecarter: (motif: string) => Promise<void>;
+}) {
+  const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState("");
   const action = useAction();
+  const alerte = lien?.includes("écartée") || lien === "Vérifiée par aucun critère";
   return (
-    <div className={"critere" + (c.statut === "HYPOTHESE" ? " hypothese" : "")}>
+    <div className={"critere" + (e.statut === "HYPOTHESE" ? " hypothese" : "")}>
       <div className="rangee" style={{ alignItems: "baseline" }}>
-        {ecartable && <input type="checkbox" checked={selectionne} onChange={basculer} aria-label={"Sélectionner " + c.code} />}
-        <span className="ref">{c.code}</span>
-        <span style={{ flex: 1 }}>{c.texte}</span>
-        {c.statut === "HYPOTHESE"
+        {ecartable && <input type="checkbox" checked={selectionne} onChange={basculer} aria-label={"Sélectionner " + e.code} />}
+        <span className="ref">{e.code}</span>
+        <span style={{ flex: 1 }}>{e.texte}</span>
+        {e.statut === "HYPOTHESE"
           ? <Pastille ton="attente">Hypothèse</Pastille>
-          : <Pastille ton="succes">Sourcé</Pastille>}
+          : <Pastille ton="succes">Sourcé{objet === "règle" ? "e" : ""}</Pastille>}
       </div>
       <div className="sources">
-        {c.sources.map((s) => <span key={s} className="source">{s}</span>)}
-        {c.sources_rejetees.map((s) => (
-          <span key={s} className="source rejetee" title="Source refusée par le contrôle : introuvable ou sans réponse">{s}</span>
+        {e.sources.map((s) => <span key={s} className="source">{s}</span>)}
+        {e.sources_rejetees.map((s) => (
+          <span key={s} className="source rejetee" title="Source refusée par le contrôle : introuvable, sans réponse ou règle non sourcée">{s}</span>
         ))}
-        {!c.sources.length && !c.sources_rejetees.length && <span className="discret-texte">Aucune source citée</span>}
+        {!e.sources.length && !e.sources_rejetees.length && objet === "règle" && <span className="discret-texte">Aucune source citée</span>}
       </div>
-      {c.statut === "HYPOTHESE" && (
+      {lien && <div className="lien-element" style={alerte ? { color: "var(--alerte)" } : undefined}>{lien}</div>}
+      {e.statut === "HYPOTHESE" && (
         <p className="discret-texte" style={{ marginTop: 6 }}>
-          Ni le texte d'origine ni vos réponses ne justifient ce critère. Répondez à la question qui manque puis relancez
-          la réécriture, ou écartez-le.
+          Ni le texte d'origine ni vos réponses ne justifient entièrement {objet === "règle" ? "cette règle" : "ce critère"}.
+          Répondez à la question qui manque puis relancez la réécriture, ou écartez-{objet === "règle" ? "la" : "le"}.
         </p>
       )}
-      {ecartable && !ecarter && (
-        <button className="bouton discret petit" style={{ marginTop: 6 }} onClick={() => setEcarter(true)}>Écarter ce critère</button>
+      {ecartable && !ouvert && (
+        <button className="bouton discret petit" style={{ marginTop: 6 }} onClick={() => setOuvert(true)}>
+          Écarter {objet === "règle" ? "cette règle" : "ce critère"}
+        </button>
       )}
-      {ecarter && (
+      {ouvert && (
         <div className="rangee" style={{ marginTop: 8 }}>
-          <input type="text" placeholder="Pourquoi l'écarter ?" value={motif} onChange={(e) => setMotif(e.target.value)}
-                 style={{ flex: 1, minWidth: 200 }} aria-label={"Motif pour écarter " + c.code} />
+          <input type="text" placeholder="Pourquoi l'écarter ?" value={motif} onChange={(ev) => setMotif(ev.target.value)}
+                 style={{ flex: 1, minWidth: 200 }} aria-label={"Motif pour écarter " + e.code} />
           <button className="bouton rejeter petit" disabled={!motif.trim() || action.enCours}
-                  onClick={() => action.lancer(async () => {
-                    await api(`/missions/${missionId}/criteres/${c.id}`, { methode: "DELETE", corps: { motif } });
-                    recharger();
-                  })}>Écarter</button>
-          <button className="bouton discret petit" onClick={() => setEcarter(false)}>Annuler</button>
+                  onClick={() => action.lancer(() => ecarter(motif))}>Écarter</button>
+          <button className="bouton discret petit" onClick={() => setOuvert(false)}>Annuler</button>
           <MessageErreur erreur={action.erreur} />
         </div>
       )}

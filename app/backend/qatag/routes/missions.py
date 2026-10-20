@@ -15,7 +15,8 @@ from ..models import (CasTest, DecisionPorte, EntreeJournal, Execution, Mission,
                       Utilisateur, VersionExigence)
 from ..regles import PORTES
 from .schemas import (AjoutParticipant, CreationMission, Decision, DecisionQuestions,
-                      EcartCritere, EcartCriteres, ModificationCas, NouvelleVersion, Precision,
+                      EcartCritere, EcartCriteres, JustificationPhrases, ModificationCas,
+                      NouvelleVersion, Precision,
                       Reponse)
 
 routeur = APIRouter(prefix="/api", tags=["Missions"])
@@ -57,9 +58,15 @@ def _version(db: Session, v: VersionExigence) -> dict:
         "texte_reecrit": v.texte_reecrit, "controle_reecriture": v.controle_reecriture,
         "points_ouverts": v.points_ouverts or [],
         "controle_conception": v.controle_conception,
+        "regles": [{"id": r.id, "code": r.code, "texte": r.texte, "sources": r.sources,
+                    "sources_rejetees": r.sources_rejetees, "statut": r.statut,
+                    "criteres": [c.code for c in v.criteres if r.code in c.regles]}
+                   for r in v.regles],
         "criteres": [{"id": c.id, "code": c.code, "texte": c.texte, "sources": c.sources,
-                      "sources_rejetees": c.sources_rejetees, "statut": c.statut}
+                      "sources_rejetees": c.sources_rejetees, "regles": c.regles,
+                      "statut": c.statut}
                      for c in v.criteres],
+        "couverture": svc.couverture(v),
         "decisions": [{"porte": d.porte, "decision": d.decision, "commentaire": d.commentaire,
                        "decideur_id": d.decideur_id, "auto_validation": d.auto_validation,
                        "decide_le": d.decide_le} for d in decisions],
@@ -242,6 +249,20 @@ def ecarter_criteres(mission_id: int, entree: EcartCriteres,
     return {"ecartes": n}
 
 
+@routeur.delete("/missions/{mission_id}/regles")
+def ecarter_regles(mission_id: int, entree: EcartCriteres,
+                   u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    n = svc.ecarter_regles(db, u, _mission(db, u, mission_id), entree.ids, entree.motif)
+    return {"ecartees": n}
+
+
+@routeur.put("/missions/{mission_id}/phrases-justification")
+def justifier_phrases(mission_id: int, entree: JustificationPhrases,
+                      u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
+    n = svc.justifier_phrases(db, u, _mission(db, u, mission_id), entree.ids, entree.motif)
+    return {"phrases": n}
+
+
 @routeur.delete("/missions/{mission_id}/criteres/{critere_id}")
 def ecarter_critere(mission_id: int, critere_id: int, entree: EcartCritere,
                     u: Utilisateur = Depends(acteur_mission), db: Session = Depends(session_db)):
@@ -318,8 +339,16 @@ def tracabilite(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
     techniques: dict[str, int] = {}
     for c in cas:
         techniques[c.technique] = techniques.get(c.technique, 0) + 1
-    return {"matrice": matrice,
-            "couverture": round(100 * couvertes / len(matrice)) if matrice else None,
+    regles_ = [{"code": r.code, "texte": r.texte,
+                "criteres": [c.code for c in v.criteres if r.code in c.regles],
+                "cas": sorted({cas_.code for cas_ in cas for c in v.criteres
+                               if r.code in c.regles and c.code in refs[cas_.id]})}
+               for r in v.regles]
+    # la couverture compte aussi les règles métier : une règle sans cas n'est pas couverte
+    total = len(matrice) + len(regles_)
+    couvertes += sum(1 for r in regles_ if r["cas"])
+    return {"matrice": matrice, "regles": regles_,
+            "couverture": round(100 * couvertes / total) if total else None,
             "cas_sans_reference": [c.code for c in cas if not refs[c.id]],
             "par_technique": techniques}
 

@@ -92,11 +92,19 @@ def normaliser_rapport_revue(rapport: str) -> tuple[str, list[str]]:
 
 
 def verifier_reecriture(origine: str, rapport: str, questions_repondues: list[str]) -> dict:
-    """RA-19, RA-20 : verifier_reecriture.py tranche SOURCE / HYPOTHESE."""
-    vr = _module("verifier_reecriture")
-    code, texte, criteres, erreurs = vr.verifier(origine, rapport, questions_repondues)
-    return {"code": code, "texte": texte, "criteres": criteres, "erreurs": erreurs,
-            "points": vr.extraire_points_ouverts(rapport) if code != 2 else []}
+    """RA-19, RA-20, RA-47 : verifier_reecriture.py tranche SOURCE / HYPOTHESE pour
+    les règles métier et les critères. Retourne code, texte, regles, criteres,
+    phrases, points, erreurs."""
+    return _module("verifier_reecriture").analyser(origine, rapport, questions_repondues)
+
+
+def phrases_source(origine: str) -> list[dict]:
+    """RA-48 : phrases numérotées du texte d'origine ({numero, texte, titre})."""
+    return _module("verifier_reecriture").phrases_source(origine)
+
+
+def phrase_couverte(phrase: str, citations: list[str]) -> bool:
+    return _module("verifier_reecriture").phrase_couverte(phrase, citations)
 
 
 EN_TETE_CAS = ["ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",

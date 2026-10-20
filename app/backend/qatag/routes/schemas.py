@@ -104,3 +104,8 @@ class DecisionQuestions(BaseModel):
 class EcartCriteres(BaseModel):
     ids: list[int] = Field(min_length=1)
     motif: str = Field(min_length=1)
+
+
+class JustificationPhrases(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    motif: str | None = None             # null pour annuler la justification

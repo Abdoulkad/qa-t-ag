@@ -36,6 +36,33 @@ export default function Tracabilite({ missionId }: { missionId: number }) {
           </tbody>
         </table>
       </div>
+      {t.regles.length > 0 && (
+        <>
+          <div className="panneau-corps" style={{ paddingBottom: 0 }}>
+            <h3>Règles métier → critères → cas</h3>
+            <p className="discret-texte">Chaque règle validée doit être vérifiée par au moins un critère, lui-même couvert par un cas.</p>
+          </div>
+          <div className="table-defile">
+            <table>
+              <thead><tr><th style={{ width: 90 }}>Règle</th><th>Énoncé</th><th style={{ width: 150 }}>Critères</th><th>Cas</th></tr></thead>
+              <tbody>
+                {t.regles.map((r) => (
+                  <tr key={r.code}>
+                    <td><span className="ref">{r.code}</span></td>
+                    <td>{r.texte}</td>
+                    <td>{r.criteres.length
+                      ? r.criteres.map((c) => <span key={c} className="ref" style={{ marginRight: 6 }}>{c}</span>)
+                      : <span style={{ color: "var(--alerte)" }}>Aucun critère</span>}</td>
+                    <td>{r.cas.length
+                      ? r.cas.map((c) => <span key={c} className="ref" style={{ marginRight: 6 }}>{c}</span>)
+                      : <span style={{ color: "var(--alerte)" }}>Aucun cas</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       {t.cas_sans_reference.length > 0 && (
         <div className="panneau-corps message-erreur" style={{ margin: 12 }}>
           Cas sans exigence tracée : {t.cas_sans_reference.join(", ")}
