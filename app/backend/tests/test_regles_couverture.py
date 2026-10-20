@@ -148,3 +148,20 @@ def test_cadrage_de_la_user_story_non_bloquant_besoin_controle(client, admin, ia
     assert [p["statut"] for p in v["couverture"]] == [
         "CADRE", "COUVERTE", "CADRE", "COUVERTE", "COUVERTE"]
     assert _detail(client, admin, mid)["bloquants_porte"] == []
+
+
+def test_cas_qui_cite_une_regle_est_trace(client, admin, ia):
+    """Un cas qui cite RG-02 n'est plus « sans exigence tracée » ; la règle le compte."""
+    mid = _mission_reecrite(client, admin, ia)
+    assert _pv1(client, admin, mid).status_code == 200
+    cas = {c["code"]: c for c in client.get("/api/missions/%d/cas" % mid, headers=admin).json()}
+    r = client.patch("/api/missions/%d/cas/%d" % (mid, cas["CT-003"]["id"]),
+                     json={"exigence": "RG-02", "donnees_test": "Abc1234 (7 caractères)"},
+                     headers=admin)
+    assert r.json()["statut"] == "PRET" and r.json()["references"] == ["RG-02"]
+    t = client.get("/api/missions/%d/tracabilite" % mid, headers=admin).json()
+    assert "CT-003" in next(x for x in t["regles"] if x["code"] == "RG-02")["cas"]
+    # RG-09 n'existe pas : référence inconnue
+    r = client.patch("/api/missions/%d/cas/%d" % (mid, cas["CT-003"]["id"]),
+                     json={"exigence": "RG-09"}, headers=admin)
+    assert r.json()["statut"] == "INCOMPLET" and "référence inconnue : RG-09" in r.json()["motif_statut"]

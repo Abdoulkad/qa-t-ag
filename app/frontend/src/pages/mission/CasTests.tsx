@@ -73,7 +73,7 @@ export default function CasTests({ mission: m, historique, recharger }: {
 }
 
 const CHAMPS: [keyof Cas, string, number][] = [
-  ["titre", "Titre", 1], ["objectif", "Objectif", 2], ["exigence", "Exigences couvertes (CA-xx, REQ-xxx)", 1],
+  ["titre", "Titre", 1], ["objectif", "Objectif", 2], ["exigence", "Exigences couvertes (au moins un CA-xx ; RG-xx, REQ-xxx si utile)", 1],
   ["preconditions", "Préconditions", 2], ["donnees_test", "Données de test", 2], ["etapes", "Étapes", 4],
   ["resultat_attendu", "Résultat attendu", 2], ["justification_technique", "Justification de la technique", 2],
 ];

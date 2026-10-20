@@ -363,8 +363,10 @@ def tracabilite(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
         techniques[c.technique] = techniques.get(c.technique, 0) + 1
     regles_ = [{"code": r.code, "texte": r.texte,
                 "criteres": [c.code for c in v.criteres if r.code in c.regles],
-                "cas": sorted({cas_.code for cas_ in cas for c in v.criteres
-                               if r.code in c.regles and c.code in refs[cas_.id]})}
+                "cas": sorted({cas_.code for cas_ in cas
+                               if r.code in refs[cas_.id]                 # cité directement
+                               or any(r.code in c.regles and c.code in refs[cas_.id]
+                                      for c in v.criteres)})}
                for r in v.regles]
     # la couverture compte aussi les règles métier : une règle sans cas n'est pas couverte
     total = len(matrice) + len(regles_)

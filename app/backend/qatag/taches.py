@@ -248,7 +248,7 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
         controler)
     justifications = controle["justifications"]
 
-    references_connues = ({c["code"] for c in criteres} |
+    references_connues = ({c["code"] for c in criteres} | {r["code"] for r in regles_metier} |
                           set(scripts_qa.references(version.texte)))
     anciens = select(CasTest.id).where(CasTest.version_id == version.id)
     db.execute(delete(Trace).where(Trace.cas_id.in_(anciens)))

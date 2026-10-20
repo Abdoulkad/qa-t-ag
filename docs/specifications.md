@@ -167,7 +167,9 @@ améliorée de la User Story avec des critères d'acceptation testables ».)*
   (« Aucune » si besoin). PV-1 est refusé tant qu'une règle n'est vérifiée par
   aucun critère, ou qu'un critère vérifie une règle écartée. Écarter une règle
   est motivé et journalisé. La traçabilité suit la chaîne RG → CA → CT, et le
-  taux de couverture compte les règles.
+  taux de couverture compte les règles. Un cas peut citer une règle RG-n en
+  plus de ses critères : la référence est reconnue (et refusée si la règle
+  n'existe pas).
 - **RA-48** **Couverture du texte d'origine** : le texte est découpé en phrases
   numérotées. Les titres et identifiants sont ignorés, comme les phrases de
   **cadrage** de la User Story : rôle (« En tant que… ») et bénéfice

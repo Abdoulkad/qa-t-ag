@@ -112,7 +112,8 @@ def consigne_conception(texte_reecrit: str, criteres: list[dict], origine: str,
                "1) Sors d'abord UNIQUEMENT le CSV brut, première ligne exactement : "
                "ID;Titre;Objectif;Exigence;Technique;Priorité;Type;Préconditions;"
                "Données de test;Étapes;Résultat attendu;Statut livrable",
-               "2) Colonne Exigence : le ou les codes couverts (CA-xx, et REQ/BR s'il y en a). "
+               "2) Colonne Exigence : le ou les codes couverts, TOUJOURS au moins un critère CA-xx ; "
+               "ajoute la règle RG-xx et les REQ/BR concernés s'il y en a (ex. « CA-03, RG-02 »). "
                "Chaque critère CA doit être couvert par au moins un cas.",
                "3) Technique : partitions d'équivalence, valeurs limites, table de décision "
                "ou transitions d'état (en minuscules).",

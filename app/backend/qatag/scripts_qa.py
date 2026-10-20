@@ -111,7 +111,7 @@ def phrase_couverte(phrase: str, citations: list[str]) -> bool:
 EN_TETE_CAS = ["ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",
                "Préconditions", "Données de test", "Étapes", "Résultat attendu",
                "Statut livrable"]
-RE_REFERENCE = re.compile(r"\b(?:REQ|BR|CA)-\d+\b")
+RE_REFERENCE = re.compile(r"\b(?:REQ|BR|CA|RG)-\d+\b")   # RG : règles métier (RA-47)
 RE_JUSTIF = re.compile(r"^\s*(CT-\d{3})\s*:\s*(.+?)\s*$")
 
 

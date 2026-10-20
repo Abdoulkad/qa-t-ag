@@ -512,7 +512,8 @@ def modifier_cas(db: Session, u: Utilisateur, m: Mission, cas_id: int, champs: d
             modifies[k] = {"avant": getattr(c, k), "apres": val}
             setattr(c, k, val.strip())
     refs = scripts_qa.references(c.exigence)
-    connues = {x.code for x in v.criteres} | set(scripts_qa.references(v.texte))
+    connues = ({x.code for x in v.criteres} | {x.code for x in v.regles} |
+               set(scripts_qa.references(v.texte)))
     statut_ia = "A_CLARIFIER" if c.statut == "A_CLARIFIER" else "OK"
     statut, motif = regles.statut_cas(c.preconditions, c.donnees_test, c.resultat_attendu,
                                       statut_ia, confirme_par_humain=confirmer)
