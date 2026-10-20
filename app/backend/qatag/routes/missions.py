@@ -29,11 +29,54 @@ def _mission(db: Session, u: Utilisateur, mission_id: int) -> Mission:
     return m
 
 
-def _resume(m: Mission) -> dict:
+def _resume(m: Mission, db: Session | None = None) -> dict:
     v = svc.version_courante(m)
-    return {"id": m.id, "reference": m.reference, "titre": m.titre, "statut": m.statut,
-            "version": v.numero, "score_clarte": v.score_clarte,
-            "nb_defauts": len(v.defauts), "cree_le": m.cree_le, "modifie_le": m.modifie_le}
+    r = {"id": m.id, "reference": m.reference, "titre": m.titre, "statut": m.statut,
+         "version": v.numero, "score_clarte": v.score_clarte,
+         "nb_defauts": len(v.defauts), "cree_le": m.cree_le, "modifie_le": m.modifie_le}
+    if db is not None:
+        r.update(_situation(db, m, v))
+    return r
+
+
+def _situation(db: Session, m: Mission, v: VersionExigence) -> dict:
+    """Ce qui attend une action sur la mission, calculé par le serveur (vue de pilotage
+    et repères de la mission) : prochaine action, questions bloquantes, échec d'agent,
+    avancement des cas."""
+    bloquantes = [q.code for q in v.questions
+                  if q.bloquante and not (q.reponse or "").strip() and not q.decision]
+    tache = db.scalar(select(TacheIA).where(TacheIA.mission_id == m.id)
+                      .order_by(TacheIA.id.desc()).limit(1))
+    occupe = tache is not None and tache.etat in ("EN_ATTENTE", "EN_COURS")
+    echec = None
+    if m.statut == "ECHEC_ANALYSE":
+        echec = "analyse en échec"
+    elif m.statut == "CONCEPTION" and not occupe and tache is not None and tache.etat == "ECHEC":
+        echec = "conception en échec"
+    porte = next((p for p, (attente, _) in PORTES.items() if attente == m.statut), None)
+    n_bloquants = len(svc.bloquants_porte(db, porte, v)[1]) if porte else 0
+    cas = db.execute(select(CasTest.statut, func.count()).where(CasTest.version_id == v.id)
+                     .group_by(CasTest.statut)).all()
+    compte = dict(cas)
+    if occupe:
+        action = {"ANALYSE": "Analyse en cours", "REECRITURE": "Réécriture en cours",
+                  "CONCEPTION": "Conception en cours"}.get(tache.type, "Agent au travail")
+    elif echec:
+        action = "Relancer l'analyse" if m.statut == "ECHEC_ANALYSE" else "Relancer la conception"
+    elif m.statut == "CLARIFICATION":
+        n = len(bloquantes)
+        pluriel = "s" if n > 1 else ""
+        action = ("Traiter %d question%s bloquante%s" % (n, pluriel, pluriel) if n
+                  else "Lancer la réécriture")
+    elif porte:
+        action = "Décider %s" % porte + (" · %d point%s à traiter" % (n_bloquants, "s" * (n_bloquants > 1))
+                                         if n_bloquants else "")
+    else:
+        action = {"VALIDEE": "Prête pour la recette", "A_CORRIGER": "Corriger et resoumettre",
+                  "EN_RECETTE": "Recette en cours", "CLOTUREE": "Clôturée"}.get(m.statut, "—")
+    return {"prochaine_action": action, "questions_bloquantes": bloquantes, "en_echec": echec,
+            "occupe": occupe, "bloquants": n_bloquants,
+            "cas": {"total": sum(compte.values()), "prets": compte.get("PRET", 0)}}
 
 
 def _version(db: Session, v: VersionExigence) -> dict:
@@ -85,7 +128,7 @@ def lister(statut: str | None = None, u: Utilisateur = Depends(utilisateur_coura
     requete = svc.visible_par(u).order_by(Mission.id.desc())
     if statut:
         requete = requete.where(Mission.statut == statut)
-    return [_resume(m) for m in db.scalars(requete).all()]
+    return [_resume(m, db) for m in db.scalars(requete).all()]
 
 
 @routeur.post("/missions", status_code=201)
@@ -119,7 +162,7 @@ def detail(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
     v = svc.version_courante(m)
     porte = next((p for p, (attente, _) in PORTES.items() if attente == m.statut), None)
     return {
-        **_resume(m),
+        **_resume(m, db),
         "participants": [{"id": p.utilisateur.id, "email": p.utilisateur.email,
                           "nom": p.utilisateur.nom} for p in m.participants],
         "versions": [_version(db, x) for x in m.versions],
@@ -213,7 +256,14 @@ def pilotage(u: Utilisateur = Depends(utilisateur_courant), db: Session = Depend
         "human_gate_en_attente": len(en_attente),
         "taux_pass": round(100 * executions.get("PASS", 0) / jouees) if jouees else None,
         "taux_approbation": round(100 * dec.get("APPROUVE", 0) / total_dec) if total_dec else None,
-        "file_human_gate": [_resume(m) for m in en_attente],
+        "file_human_gate": [_resume(m, db) for m in en_attente],
+        # Les quatre cartes « à faire » de la vue de pilotage
+        "questions_bloquantes": [r for r in (_resume(m, db) for m in missions
+                                             if m.statut == "CLARIFICATION")
+                                 if r["questions_bloquantes"]],
+        "en_echec": [r for r in (_resume(m, db) for m in missions
+                                 if m.statut in ("ECHEC_ANALYSE", "CONCEPTION")) if r["en_echec"]],
+        "pretes_recette": [_resume(m, db) for m in missions if m.statut == "VALIDEE"],
     }
 
 

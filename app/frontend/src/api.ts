@@ -131,6 +131,13 @@ export interface ResumeMission {
   nb_defauts: number;
   cree_le: string;
   modifie_le: string;
+  // Situation calculée par le serveur (liste, détail et vue de pilotage)
+  prochaine_action: string;
+  questions_bloquantes: string[];
+  en_echec: string | null;
+  occupe: boolean;
+  bloquants: number;
+  cas: { total: number; prets: number };
 }
 
 export interface Defaut {
@@ -221,6 +228,9 @@ export interface Pilotage {
   taux_pass: number | null;
   taux_approbation: number | null;
   file_human_gate: ResumeMission[];
+  questions_bloquantes: ResumeMission[];
+  en_echec: ResumeMission[];
+  pretes_recette: ResumeMission[];
 }
 
 export interface ConfigIA {

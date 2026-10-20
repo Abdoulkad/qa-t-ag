@@ -165,14 +165,17 @@ export function Chaine({ statut, rejetee }: { statut: StatutMission; rejetee: "P
   );
 }
 
-export function MiniChaine({ statut }: { statut: StatutMission }) {
+/** Avancement compact d'une mission : étapes en barres, Human Gates en losanges.
+ *  Vert = fait, ambre = en cours, rouge = en échec, violet = décision attendue. */
+export function MiniChaine({ statut, enEchec = false }: { statut: StatutMission; enEchec?: boolean }) {
   const e = etatsChaine(statut, null);
-  const c = (x: EtatEtape) => (x === "faite" ? "f" : "");
-  const p = (x: EtatPorte) => (x === "ouverte" ? "p f" : x === "attend" ? "p a" : "p");
+  const barre = (x: EtatEtape, echecIci = false) =>
+    "b" + (x === "faite" ? " f" : x === "echec" || (echecIci && x === "courante") ? " e" : x === "courante" ? " c" : "");
+  const porte = (x: EtatPorte) => "p" + (x === "ouverte" ? " f" : x === "attend" ? " a" : "");
   return (
-    <span className="mini-chaine" aria-hidden="true">
-      <i className={c(e.analyser)} /><i className={c(e.clarifier)} /><i className={p(e.pv1)} />
-      <i className={c(e.concevoir)} /><i className={p(e.pv2)} /><i className={c(e.recette)} />
+    <span className="mini-chaine" role="img" aria-label={"Avancement : " + STATUT_MISSION[statut].libelle}>
+      <i className={barre(e.analyser)} /><i className={barre(e.clarifier)} /><i className={porte(e.pv1)} />
+      <i className={barre(e.concevoir, enEchec)} /><i className={porte(e.pv2)} /><i className={barre(e.recette)} />
     </span>
   );
 }

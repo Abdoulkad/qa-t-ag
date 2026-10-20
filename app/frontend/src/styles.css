@@ -9,7 +9,7 @@
   --surface: #ffffff;
   --encre: #142a3b;
   --encre-douce: #4d6274;
-  --encre-pale: #7b8d9c;
+  --encre-pale: #5f7486;   /* 4,9:1 sur blanc : lisible en petit corps */
   --trait: #d6e0e8;
   --trait-fort: #b9c8d4;
   --action: #1f5fa6;
@@ -275,11 +275,13 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 
 /* Mini-chaîne dans les listes */
 .mini-chaine { display: inline-flex; gap: 3px; align-items: center; }
-.mini-chaine i { width: 14px; height: 4px; border-radius: 2px; background: var(--trait); }
-.mini-chaine i.f { background: var(--action); }
-.mini-chaine i.p { width: 4px; height: 12px; background: var(--trait-fort); }
-.mini-chaine i.p.f { background: var(--succes); }
-.mini-chaine i.p.a { background: var(--porte); }
+.mini-chaine i.b { width: 26px; height: 6px; border-radius: 3px; background: #dbe4ec; }
+.mini-chaine i.b.f { background: var(--succes); }
+.mini-chaine i.b.c { background: var(--attente); }
+.mini-chaine i.b.e { background: var(--alerte); }
+.mini-chaine i.p { width: 8px; height: 8px; transform: rotate(45deg); border: 1.5px solid var(--trait-fort); box-sizing: border-box; margin: 0 2px; }
+.mini-chaine i.p.f { background: var(--succes); border-color: var(--succes); }
+.mini-chaine i.p.a { background: var(--porte); border-color: var(--porte); }
 
 /* --- Human Gate ----------------------------------------------------------- */
 
@@ -399,3 +401,122 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .table-defauts .constat { color: var(--encre-douce); }
 .table-defauts .justif { font-size: 0.8rem; color: var(--encre-douce); margin-top: 4px; }
 .table-defauts tr.formulaire td { background: var(--action-pale); }
+
+/* --- Vue de pilotage : cartes « à faire » colorées ------------------------ */
+.cartes-afaire { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.carte-afaire { border-radius: 10px; padding: 16px; border: 1px solid; }
+.carte-afaire-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.carte-afaire-titre { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.carte-afaire-icone { width: 30px; height: 30px; border-radius: 8px; color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+.carte-afaire-nombre { font-size: 1.75rem; font-weight: 600; line-height: 1; }
+.carte-afaire ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.carte-afaire a { color: inherit; text-decoration: none; }
+.carte-afaire a:hover { text-decoration: underline; }
+.carte-afaire .ref { color: inherit; }
+.carte-afaire .detail { opacity: 0.85; }
+.carte-afaire .rien { opacity: 0.8; font-size: 0.88rem; margin-top: 10px; }
+.carte-afaire.porte { background: #eeebfa; border-color: #d3cdf0; color: #3f3390; }
+.carte-afaire.porte .carte-afaire-icone { background: var(--porte); }
+.carte-afaire.attente { background: #fbf0dc; border-color: #efd9ad; color: #6f480c; }
+.carte-afaire.attente .carte-afaire-icone { background: var(--attente); }
+.carte-afaire.alerte { background: #f9e6e2; border-color: #efc6be; color: #82301f; }
+.carte-afaire.alerte .carte-afaire-icone { background: var(--alerte); }
+.carte-afaire.succes { background: #e3f2ea; border-color: #bfdfcd; color: #1f5c41; }
+.carte-afaire.succes .carte-afaire-icone { background: var(--succes); }
+
+/* Puces de filtre */
+.puces { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.puce { font: inherit; font-size: 0.85rem; padding: 4px 12px; border-radius: 16px; border: 1px solid var(--trait-fort); background: var(--surface); color: var(--encre); cursor: pointer; }
+.puce:hover { border-color: var(--encre-pale); }
+.puce[aria-pressed="true"] { background: var(--action); border-color: var(--action); color: #fff; }
+
+/* --- Mission : parcours par étapes (navigation principale) ---------------- */
+.parcours { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--trait); border-radius: 10px; }
+.parcours-etape {
+  flex: 1 1 150px; display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 7px;
+  border: 0; background: transparent; font: inherit; color: var(--encre); text-align: left; cursor: pointer;
+}
+.parcours-etape:hover { background: #f4f7fa; }
+.parcours-etape.indisponible { cursor: default; color: var(--encre-pale); }
+.parcours-etape.indisponible:hover { background: transparent; }
+.parcours-etape[aria-current="step"] { background: var(--action-pale); box-shadow: inset 0 0 0 1px var(--action); }
+.parcours-numero {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 0.82rem; font-weight: 600; border: 2px solid var(--trait-fort); color: var(--encre-pale); box-sizing: border-box;
+}
+.parcours-etape.faite .parcours-numero { background: var(--succes); border-color: var(--succes); color: #fff; }
+.parcours-etape.courante .parcours-numero { border-color: var(--attente); color: var(--attente); }
+.parcours-etape.echec .parcours-numero { background: var(--alerte); border-color: var(--alerte); color: #fff; }
+.parcours-nom { display: block; font-weight: 600; font-size: 0.92rem; }
+.parcours-detail { display: block; font-size: 0.78rem; color: var(--encre-douce); }
+.parcours-etape.courante .parcours-detail { color: var(--attente); }
+.parcours-etape.echec .parcours-detail { color: var(--alerte); }
+.parcours-porte {
+  flex: 0 1 74px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font: 500 0.75rem var(--police-code); color: var(--encre-pale);
+}
+.parcours-porte .losange { width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid var(--trait-fort); box-sizing: border-box; }
+.parcours-porte.attend { color: var(--porte); }
+.parcours-porte.attend .losange { background: var(--porte); border-color: var(--porte); }
+.parcours-porte.ouverte { color: var(--succes); }
+.parcours-porte.ouverte .losange { background: var(--succes); border-color: var(--succes); }
+.parcours-porte.fermee { color: var(--alerte); }
+.parcours-porte.fermee .losange { border-color: var(--alerte); }
+
+.bouton[aria-pressed="true"] { background: var(--action-pale); border-color: var(--action); color: var(--action-fonce); }
+.bouton-icone {
+  width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--trait-fort); background: var(--surface);
+  color: var(--encre-douce); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.bouton-icone:hover:not(:disabled) { border-color: var(--encre-pale); }
+.bouton-icone.ok { color: var(--succes); }
+.bouton-icone[aria-expanded="true"] { background: var(--action-pale); border-color: var(--action); }
+.lien { font: inherit; padding: 0; border: 0; background: none; color: var(--action); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.invisible { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Colonne de repères */
+.reperes { overflow: hidden; }
+.reperes-tete { padding: 14px 16px; border-bottom: 1px solid var(--trait); }
+.reperes-titre { font-size: 1.02rem; font-weight: 600; margin-top: 2px; }
+.reperes-liste { list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 0.92rem; }
+.reperes-liste li { display: flex; gap: 10px; }
+.repere-icone {
+  flex: none; width: 18px; height: 18px; border-radius: 50%; font-size: 0.72rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 2px;
+}
+.repere-icone.bloque { background: var(--alerte-pale); color: var(--alerte); }
+.repere-icone.ok { background: var(--succes-pale); color: var(--succes); }
+.repere-icone.info { background: #edf1f5; color: var(--encre-douce); }
+.barre-progres { height: 7px; border-radius: 4px; background: #e6edf3; display: flex; overflow: hidden; margin-top: 4px; }
+.barre-progres div { height: 100%; }
+
+/* Défauts : barre de filtres et lignes */
+.barre-filtres { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--trait); background: #f8fafc; border-radius: var(--rayon) var(--rayon) 0 0; }
+.question-du-defaut { margin-top: 6px; font-size: 0.86rem; color: var(--encre-douce); }
+details.replie summary { cursor: pointer; color: var(--action); font-size: 0.9rem; }
+
+/* Questions regroupées */
+.groupe-questions { background: var(--surface); border: 1px solid var(--trait); border-radius: 10px; overflow: hidden; }
+.groupe-questions-tete {
+  padding: 11px 18px; border-bottom: 1px solid var(--trait); display: flex; justify-content: space-between;
+  align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; color: var(--encre-douce);
+}
+.groupe-questions-tete h3 { font-size: 0.98rem; color: var(--encre); }
+.groupe-questions.urgent { border-color: #e3b5ac; }
+.groupe-questions.urgent .groupe-questions-tete { background: #fdf3f1; border-bottom-color: #f0d2cc; color: #8d3324; }
+.groupe-questions.urgent .groupe-questions-tete h3 { color: #8d3324; }
+.question-compacte { display: flex; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #e8eef3; align-items: flex-start; font-size: 0.93rem; }
+.question-compacte:last-child { border-bottom: 0; }
+.question-compacte.choisie { background: #f7faff; }
+.question-compacte input[type="checkbox"] { margin-top: 4px; }
+.reponse-courte { margin-top: 3px; color: var(--succes); font-size: 0.9rem; }
+
+/* Barre d'action groupée collée en bas de l'écran */
+.barre-lot {
+  position: sticky; bottom: 16px; z-index: 5; background: var(--encre); color: #fff; border-radius: 10px;
+  padding: 12px 16px; box-shadow: 0 8px 24px rgba(20, 42, 59, 0.2);
+}
+.barre-lot .discret-texte { color: #c5d3df; }
+.barre-lot .bouton { background: #fff; border-color: #fff; color: var(--encre); }
+.barre-lot .bouton.discret { background: transparent; border-color: transparent; color: #c5d3df; }
+.ligne-phrase { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 10px; align-items: baseline; padding: 4px 0; }
