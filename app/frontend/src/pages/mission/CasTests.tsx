@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type Cas, type Mission } from "../../api";
+import { api, telecharger, type Cas, type Mission } from "../../api";
 import { MessageErreur, PastilleCas, useAction, useDonnees, Volet } from "../../composants";
 
 const TECHNIQUES = ["partitions d'équivalence", "valeurs limites", "table de décision", "transitions d'état"];
@@ -10,6 +10,7 @@ export default function CasTests({ mission: m, historique, recharger }: {
   const { donnees, erreur, recharger: relire } = useDonnees<Cas[]>(`/missions/${m.id}/cas`);
   const [ouvert, setOuvert] = useState<Cas | null>(null);
   const modifiable = !historique && m.statut === "ATTENTE_PV2";
+  const exporter = useAction();
 
   if (erreur) return <div className="panneau-corps"><MessageErreur erreur={erreur} /></div>;
   if (!donnees) return <div className="charge">Chargement…</div>;
@@ -32,7 +33,16 @@ export default function CasTests({ mission: m, historique, recharger }: {
         {modifiable && compte("PRET") < donnees.length && (
           <span className="discret-texte">Ouvrez un cas pour le compléter : son statut est recalculé à l'enregistrement.</span>
         )}
+        {!historique && (
+          <button className="bouton" style={{ marginLeft: "auto" }} disabled={exporter.enCours}
+                  title={m.statut === "ATTENTE_PV2" ? "Document de travail : PV-2 n'est pas encore validé"
+                    : "Cahier des cas au gabarit Word DSI"}
+                  onClick={() => exporter.lancer(() => telecharger(`/missions/${m.id}/cahier-cas`))}>
+            {exporter.enCours ? "Export…" : m.statut === "ATTENTE_PV2" ? "Exporter en Word (brouillon)" : "Exporter en Word"}
+          </button>
+        )}
       </div>
+      {exporter.erreur && <div className="panneau-corps"><MessageErreur erreur={exporter.erreur} /></div>}
       <div className="table-defile">
         <table>
           <thead>

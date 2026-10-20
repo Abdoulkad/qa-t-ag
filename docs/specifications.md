@@ -180,6 +180,21 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
 - **RA-31** Une preuve (capture) est stockée sur disque ; la base garde son
   chemin, son type et son empreinte SHA-256. PNG ou JPEG, 10 Mo maximum.
 
+## 7 bis. Cahier des cas de test (export Word, avant recette)
+
+Document distinct du cahier de recette : il décrit les cas à exécuter,
+zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.docx`.
+
+- **RA-46** Le cahier des cas s'exporte dès que les cas sont conçus (statut
+  `ATTENTE_PV2` ou suivant), sur la version courante, **depuis la base** et par
+  `cahier_word.py`, sans reformulation. Un bandeau identifie la mission, la
+  version et son empreinte. Avant PV-2, le document porte la mention
+  « DOCUMENT DE TRAVAIL — cas non validés » et le nom de fichier se termine
+  par `_brouillon` ; après PV-2, il indique la date, le décideur et
+  l'auto-validation éventuelle. Un cas dont la priorité ou le type ne
+  correspond à aucune case du gabarit bloque l'export. Chaque export est
+  inscrit au journal avec l'empreinte SHA-256 du fichier remis.
+
 ## 8. Cahier de recette (export Word)
 
 - **RA-32** Le cahier est généré **uniquement depuis la base**, à partir du
@@ -267,6 +282,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-18 à RA-21 | `test_clarification.py` | 2 |
 | RA-22 à RA-26, RA-41 | `test_conception.py` | 2 |
 | RA-20 (source rejetée), RA-21 (amendée), RA-42 à RA-44 | `test_decisions.py` | 2 |
+| RA-46 | `test_cahier_cas.py` | 2 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

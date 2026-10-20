@@ -353,3 +353,70 @@ def modifier_cas(db: Session, u: Utilisateur, m: Mission, cas_id: int, champs: d
                              "statut": statut})
     db.commit()
     return c
+
+
+STATUTS_CAHIER = ("ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE")
+
+
+def exporter_cahier_cas(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
+    """RA-46 : cahier des cas au gabarit Word DSI, sur la version courante.
+
+    Recopie fidèle des cas enregistrés ; zones d'exécution laissées vides. Avant
+    PV-2, le document est marqué « document de travail ». Chaque export est tracé
+    au journal avec l'empreinte SHA-256 du fichier remis."""
+    import hashlib
+    import os
+    import tempfile
+
+    if m.statut not in STATUTS_CAHIER:
+        raise RegleViolee("RA-46", "Le cahier des cas s'exporte une fois les cas conçus "
+                                   "(statut actuel : %s)" % m.statut)
+    v = version_courante(m)
+    cas = db.scalars(select(CasTest).where(CasTest.version_id == v.id)
+                     .order_by(CasTest.code)).all()
+    if not cas:
+        raise RegleViolee("RA-46", "Aucun cas de test à exporter")
+    cw = scripts_qa._module("cahier_word")
+    lignes, invalides = [], []
+    for c in cas:
+        prio = scripts_qa.valeur_gabarit(c.priorite, tuple(cw.PRIO_TOK))
+        typ = scripts_qa.valeur_gabarit(c.type, tuple(cw.TYPE_TOK))
+        if prio is None:
+            invalides.append("%s : priorité « %s » absente du gabarit" % (c.code, c.priorite))
+        if typ is None:
+            invalides.append("%s : type « %s » absent du gabarit" % (c.code, c.type))
+        statut = "À_CLARIFIER" if c.statut == "A_CLARIFIER" else c.statut
+        lignes.append([c.code, c.titre, c.objectif, c.exigence, c.technique, prio or "",
+                       typ or "", c.preconditions, c.donnees_test, c.etapes,
+                       c.resultat_attendu, statut])
+    if invalides:
+        raise RegleViolee("RA-46", "Corrigez ces cas avant l'export : chaque cas doit "
+                                   "cocher une priorité et un type du gabarit", invalides)
+
+    pv2 = db.scalar(select(DecisionPorte).where(DecisionPorte.version_id == v.id,
+                                                DecisionPorte.porte == "PV-2",
+                                                DecisionPorte.decision == "APPROUVE"))
+    entete = "Mission %s — %s · version %d · empreinte %s" % (
+        m.reference, m.titre, v.numero, v.empreinte[:12])
+    if pv2:
+        decideur = db.get(Utilisateur, pv2.decideur_id)
+        etat = "Cas validés à PV-2 le %s par %s%s" % (
+            pv2.decide_le.strftime("%d/%m/%Y"), decideur.nom or decideur.email,
+            " (auto-validation)" if pv2.auto_validation else "")
+    else:
+        etat = "DOCUMENT DE TRAVAIL — cas non validés (PV-2 en attente)"
+    fd, chemin = tempfile.mkstemp(suffix=".docx")
+    os.close(fd)
+    try:
+        scripts_qa.cahier_cas(lignes, "%s\n%s · %d cas" % (etat, entete, len(cas)), chemin)
+        with open(chemin, "rb") as f:
+            contenu = f.read()
+    finally:
+        os.remove(chemin)
+    nom = "Cahier_cas_%s_v%d%s.docx" % (m.reference, v.numero, "" if pv2 else "_brouillon")
+    journal.ajouter(db, m.organisation_id, "cahier_cas_exporte", mission_id=m.id,
+                    acteur_id=u.id, details={"version": v.numero, "cas": len(cas),
+                                             "valide_pv2": bool(pv2), "fichier": nom,
+                                             "empreinte": hashlib.sha256(contenu).hexdigest()})
+    db.commit()
+    return contenu, nom

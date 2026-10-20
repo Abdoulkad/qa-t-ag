@@ -53,6 +53,7 @@ export const EVENEMENTS: Record<string, string> = {
   conception_echec: "Conception en échec",
   cas_modifie: "Cas corrigé",
   tache_relancee: "Agent relancé",
+  cahier_cas_exporte: "Cahier des cas exporté",
 };
 
 export const DECISION_QUESTION: Record<string, string> = {

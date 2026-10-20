@@ -191,3 +191,42 @@ def statut_agent(valeur: str) -> str:
         return st.normaliser_statut_agent(valeur)
     except ValueError:
         return "A_CLARIFIER"
+
+
+# --- Cahier des cas de test (gabarit Word DSI) -------------------------------
+
+def _cle(valeur: str) -> str:
+    return re.sub(r"\s+", "", (valeur or "").lower())
+
+
+def valeur_gabarit(valeur: str, permises: tuple[str, ...]) -> str | None:
+    """Ramène « Sécurité / Habilitation » ou « haute » au libellé exact attendu par le
+    gabarit (une case ☒ doit être cochée). None si la valeur n'y correspond pas."""
+    return next((p for p in permises if _cle(p) == _cle(valeur)), None)
+
+
+def cahier_cas(lignes: list[list[str]], bandeau: str, sortie: str) -> None:
+    """Remplit le gabarit Word avec cahier_word.py (recopie sans reformuler), puis
+    insère avant le premier cas un bandeau d'identification de la version."""
+    import csv
+
+    import docx
+
+    cw = _module("cahier_word")
+    fd, chemin_csv = tempfile.mkstemp(suffix=".csv")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            ecrivain = csv.writer(f, delimiter=";")
+            ecrivain.writerow(cw.EN_TETE_CAS)
+            ecrivain.writerows(lignes)
+        code, message = cw.cahier(str(parametres().gabarit_cahier), chemin_csv, sortie)
+    finally:
+        os.remove(chemin_csv)
+    if code != 0:
+        raise RuntimeError("cahier_word.py : %s" % message)
+    doc = docx.Document(sortie)
+    premier = next(p for p in doc.paragraphs if p.text.startswith(lignes[0][0] + " : "))
+    for i, texte in enumerate(bandeau.split("\n")):
+        run = premier.insert_paragraph_before().add_run(texte)
+        run.bold = i == 0
+    doc.save(sortie)

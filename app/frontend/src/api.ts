@@ -75,6 +75,35 @@ export async function api<T = unknown>(
   return corps as T;
 }
 
+/** Télécharge un fichier produit par le serveur (le jeton ne passe pas dans un lien). */
+export async function telecharger(chemin: string): Promise<void> {
+  const entetes: Record<string, string> = {};
+  const j = jeton();
+  if (j) entetes["Authorization"] = "Bearer " + j;
+  let r: Response;
+  try {
+    r = await fetch("/api" + chemin, { headers: entetes });
+  } catch {
+    throw new ErreurApi(0, "Le serveur QA-T-AG ne répond pas. Vérifiez qu'il est lancé.");
+  }
+  if (!r.ok) {
+    const texte = await r.text();
+    const corps = texte ? JSON.parse(texte) : null;
+    throw new ErreurApi(r.status, messageDe(corps, r.status), corps?.regle, corps?.elements ?? []);
+  }
+  const dispo = r.headers.get("Content-Disposition") ?? "";
+  const m = /filename\*=UTF-8''([^;]+)/.exec(dispo);
+  const nom = m ? decodeURIComponent(m[1]) : "export.docx";
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nom;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // --- Types renvoyés par l'API ------------------------------------------------
 
 export type Role = "ANALYSTE" | "SUPERVISEUR" | "ADMIN";

@@ -1,6 +1,9 @@
 import json
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from urllib.parse import quote
+
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Response, UploadFile,
+                     status)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -286,6 +289,16 @@ def modifier_cas(mission_id: int, cas_id: int, entree: ModificationCas,
     champs = entree.model_dump(exclude={"confirmer"}, exclude_none=True)
     c = svc.modifier_cas(db, u, _mission(db, u, mission_id), cas_id, champs, entree.confirmer)
     return _cas(c, _refs(db, [c.id])[c.id])
+
+
+@routeur.get("/missions/{mission_id}/cahier-cas")
+def cahier_cas(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
+               db: Session = Depends(session_db)):
+    """RA-46 : cahier des cas de test au gabarit Word DSI (version courante)."""
+    contenu, nom = svc.exporter_cahier_cas(db, u, _mission(db, u, mission_id))
+    return Response(contenu, media_type="application/vnd.openxmlformats-officedocument."
+                                        "wordprocessingml.document",
+                    headers={"Content-Disposition": "attachment; filename*=UTF-8''%s" % quote(nom)})
 
 
 @routeur.get("/missions/{mission_id}/tracabilite")
