@@ -36,6 +36,7 @@ function messageDe(corps: unknown, statut: number): string {
   if (corps && typeof corps === "object" && "detail" in corps) {
     const d = (corps as { detail: unknown }).detail;
     if (typeof d === "string") return d;
+    if (d && typeof d === "object" && "message" in d) return String((d as { message: unknown }).message);
     if (Array.isArray(d) && d.length) {
       // erreurs de validation FastAPI
       return d.map((e: { msg?: string }) => e.msg ?? "Valeur invalide").join(" ; ");
@@ -69,6 +70,10 @@ export async function api<T = unknown>(
     if (r.status === 401 && chemin !== "/auth/connexion") {
       enregistrerJeton(null);
       window.dispatchEvent(new Event("qatag:deconnexion"));
+    }
+    if (r.status === 403 && corps?.detail?.code === "MOT_DE_PASSE_A_CHANGER") {
+      // RA-55 : le serveur exige le changement du mot de passe provisoire
+      window.dispatchEvent(new Event("qatag:mot-de-passe-provisoire"));
     }
     throw new ErreurApi(r.status, messageDe(corps, r.status), corps?.regle, corps?.elements ?? []);
   }
@@ -115,6 +120,7 @@ export interface Utilisateur {
   roles: Role[];
   actif: boolean;
   cree_le: string;
+  mot_de_passe_provisoire: boolean;
 }
 
 export type StatutMission =

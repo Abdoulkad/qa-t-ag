@@ -639,3 +639,8 @@ h2.titre-mono { font-size: 1.1rem; }
 .fil-journal .qui a { color: inherit; text-decoration: none; }
 .fil-journal .qui a:hover { text-decoration: underline; }
 .fil-journal .quoi { font-size: 0.88rem; color: var(--encre); margin-top: 2px; }
+
+/* Pied de la barre latérale : mot de passe et déconnexion */
+.barre-pied { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.barre-pied a.bouton { text-decoration: none; }
+@media (max-width: 860px) { .barre-pied { flex-direction: row; } }

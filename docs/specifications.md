@@ -49,6 +49,22 @@ existants (`webapp/scripts/`).
   minimum, stocké haché (bcrypt), jamais en clair ni dans les journaux.
 - **RA-07** Session par jeton signé à durée limitée (8 h par défaut,
   configurable).
+- **RA-55** Un compte créé par un `ADMIN` reçoit un mot de passe provisoire.
+  Tant qu'il n'est pas changé, le serveur refuse toute action (HTTP 403,
+  code `MOT_DE_PASSE_A_CHANGER`) sauf la consultation de son profil et le
+  changement de mot de passe ; l'interface n'affiche que l'écran de changement.
+  Un compte inscrit lui-même (premier compte, inscription libre) n'est pas
+  provisoire.
+- **RA-56** Tout utilisateur change son mot de passe en saisissant l'actuel. Le
+  nouveau fait 8 caractères minimum et diffère de l'actuel. Les essais de
+  l'ancien mot de passe suivent la limitation de RA-52. Le changement est
+  inscrit au journal (`mot_de_passe_change`), sans le mot de passe.
+- **RA-57** Un `ADMIN` réinitialise le mot de passe d'un autre compte de son
+  organisation : le nouveau mot de passe est provisoire (RA-55). Pour son propre
+  compte, il passe par RA-56. Inscrit au journal (`mot_de_passe_reinitialise`).
+- **RA-58** Un changement ou une réinitialisation de mot de passe ferme toutes
+  les sessions ouvertes du compte ; seule la session qui vient de changer le
+  mot de passe reçoit un nouveau jeton.
 - **RA-52** Après 5 échecs de connexion en 15 minutes sur un même e-mail, ou
   20 depuis une même adresse IP, la connexion est refusée (HTTP 429, délai
   d'attente indiqué) jusqu'à ce que les échecs sortent de la fenêtre, même
@@ -364,6 +380,8 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-17 (défauts retenus), RA-49, RA-50 | `test_revue_v2.py` | 2 |
 | RA-51 à RA-53 | `test_securite.py` | S1 |
 | RA-54 | `test_sauvegarde.py` | S1 |
+| RA-55 à RA-58 | `test_mots_de_passe.py` | S2 |
+| (extraction PDF, garde-fou des mises à jour) | `test_extraction.py` | S1 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

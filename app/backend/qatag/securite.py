@@ -32,15 +32,17 @@ def verifier_factice(mot_de_passe: str) -> bool:
     return False
 
 
-def creer_jeton(utilisateur_id: int) -> str:
+def creer_jeton(utilisateur_id: int, version_session: int = 0) -> str:
     p = parametres()
     expire = datetime.now(timezone.utc) + timedelta(hours=p.duree_session_heures)
-    return jwt.encode({"sub": str(utilisateur_id), "exp": expire}, p.secret_key, algorithm=ALGO)
+    return jwt.encode({"sub": str(utilisateur_id), "ver": version_session, "exp": expire},
+                      p.secret_key, algorithm=ALGO)
 
 
-def lire_jeton(jeton: str) -> int | None:
+def lire_jeton(jeton: str) -> tuple[int, int] | None:
+    """(identifiant, version de session) ; un jeton sans version vaut version 0."""
     try:
         donnees = jwt.decode(jeton, parametres().secret_key, algorithms=[ALGO])
-        return int(donnees["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError):
+        return int(donnees["sub"]), int(donnees.get("ver", 0))
+    except (jwt.PyJWTError, KeyError, ValueError, TypeError):
         return None

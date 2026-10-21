@@ -7,7 +7,8 @@ from ..db import session_db
 from ..deps import administrateur
 from ..models import ROLES, Utilisateur
 from ..securite import hacher
-from .schemas import ChangementActif, ChangementRoles, CreationUtilisateur, UtilisateurSortie
+from .schemas import (ChangementActif, ChangementRoles, CreationUtilisateur,
+                      ReinitialisationMotDePasse, UtilisateurSortie)
 
 routeur = APIRouter(prefix="/api/utilisateurs", tags=["Utilisateurs"])
 
@@ -48,8 +49,10 @@ def creer(entree: CreationUtilisateur, admin: Utilisateur = Depends(administrate
     roles = _valider_roles(entree.roles)
     if not roles:
         raise HTTPException(422, "Au moins un rôle (RA-01)")
+    # RA-55 : le mot de passe choisi par l'administrateur est provisoire
     u = Utilisateur(organisation_id=admin.organisation_id, email=email, nom=entree.nom,
-                    hash_mot_de_passe=hacher(entree.mot_de_passe), roles=roles)
+                    hash_mot_de_passe=hacher(entree.mot_de_passe), roles=roles,
+                    mot_de_passe_provisoire=True)
     db.add(u)
     db.flush()
     journal.ajouter(db, admin.organisation_id, "compte_cree", acteur_id=admin.id,
@@ -86,5 +89,24 @@ def changer_actif(uid: int, entree: ChangementActif, admin: Utilisateur = Depend
     journal.ajouter(db, admin.organisation_id,
                     "compte_reactive" if entree.actif else "compte_desactive",
                     acteur_id=admin.id, details={"email": u.email})
+    db.commit()
+    return u
+
+
+@routeur.post("/{uid}/mot-de-passe", response_model=UtilisateurSortie)
+def reinitialiser_mot_de_passe(uid: int, entree: ReinitialisationMotDePasse,
+                               admin: Utilisateur = Depends(administrateur),
+                               db: Session = Depends(session_db)):
+    """RA-57 : l'administrateur attribue un mot de passe provisoire, à changer à la
+    prochaine connexion ; les sessions ouvertes du compte sont fermées (RA-58)."""
+    u = _cible(db, admin, uid)
+    if u.id == admin.id:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "Pour votre propre compte, utilisez « Changer mon mot de passe »")
+    u.hash_mot_de_passe = hacher(entree.mot_de_passe)
+    u.mot_de_passe_provisoire = True
+    u.version_session += 1
+    journal.ajouter(db, admin.organisation_id, "mot_de_passe_reinitialise", acteur_id=admin.id,
+                    details={"email": u.email})
     db.commit()
     return u
