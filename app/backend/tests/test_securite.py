@@ -170,7 +170,7 @@ def test_documentation_api_garde_son_cdn(client):
     # Lecture directive par directive : sources autorisées de chaque directive
     directives = {d.split()[0]: d.split()[1:]
                   for d in r.headers["Content-Security-Policy"].split(";") if d.strip()}
-    assert "https://cdn.jsdelivr.net" in directives["script-src"]
+    assert directives["script-src"] == ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"]
     assert directives["frame-ancestors"] == ["'none'"]
 
 
