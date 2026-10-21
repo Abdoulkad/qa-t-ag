@@ -365,7 +365,13 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .connexion-etapes li { counter-increment: etape; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--trait); }
 .connexion-etapes li::before { content: counter(etape); font: 600 0.95rem var(--police-code); color: var(--action); }
 .connexion-etapes p { color: var(--encre-douce); font-size: 0.9rem; }
-.connexion-formulaire { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px 24px; background: var(--fond); }
+.connexion-formulaire {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 40px 24px;
+  /* fond légèrement dégradé : un halo plus clair derrière la carte */
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 45%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(170deg, #eef5fc 0%, #e2edf8 55%, #d6e6f5 100%);
+}
 
 @media (max-width: 860px) {
   .connexion { grid-template-columns: 1fr; }
@@ -591,7 +597,13 @@ h2.titre-mono { font-size: 1.1rem; }
 .connexion-cadre {
   width: min(450px, 100%); display: grid; gap: 14px; background: var(--surface);
   border: 1px solid #bcd5ee; border-radius: 16px; padding: 32px 32px 26px;
-  box-shadow: 0 18px 40px rgba(23, 74, 131, 0.10), 0 2px 6px rgba(23, 74, 131, 0.06);
+  /* Lueur bleue diffuse tout autour + ombre portée douce : la carte flotte au-dessus du fond */
+  box-shadow:
+    0 0 0 1px rgba(31, 95, 166, 0.06),
+    0 0 60px 10px rgba(58, 140, 220, 0.28),
+    0 24px 48px -12px rgba(23, 74, 131, 0.22),
+    0 2px 6px rgba(23, 74, 131, 0.06);
+  position: relative;
 }
 .connexion-surtitre { font: 600 0.75rem var(--police-code); letter-spacing: 0.08em; text-transform: uppercase; color: var(--action); }
 .connexion-cadre h2.titre-mono { font-size: 1.45rem; }
