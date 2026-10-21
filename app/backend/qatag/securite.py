@@ -22,6 +22,16 @@ def verifier(mot_de_passe: str, hache: str) -> bool:
         return False
 
 
+# Empreinte d'un mot de passe que personne ne connaît : vérifier contre elle
+# quand le compte n'existe pas prend le même temps qu'une vraie vérification.
+_HASH_FACTICE = bcrypt.hashpw(b"compte-inexistant", bcrypt.gensalt()).decode()
+
+
+def verifier_factice(mot_de_passe: str) -> bool:
+    verifier(mot_de_passe, _HASH_FACTICE)
+    return False
+
+
 def creer_jeton(utilisateur_id: int) -> str:
     p = parametres()
     expire = datetime.now(timezone.utc) + timedelta(hours=p.duree_session_heures)

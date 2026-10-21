@@ -31,6 +31,7 @@ export const ROLES: Record<string, string> = {
 
 export const EVENEMENTS: Record<string, string> = {
   compte_cree: "Compte créé",
+  connexion_bloquee: "Connexion bloquée après trop d'échecs",
   roles_modifies: "Rôles modifiés",
   compte_desactive: "Compte désactivé",
   compte_reactive: "Compte réactivé",
