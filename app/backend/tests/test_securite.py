@@ -167,8 +167,11 @@ def test_entetes_presents_meme_sur_une_erreur(client):
 def test_documentation_api_garde_son_cdn(client):
     r = client.get("/docs")
     assert r.status_code == 200
-    assert "https://cdn.jsdelivr.net" in r.headers["Content-Security-Policy"]
-    assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]
+    # Lecture directive par directive : sources autorisées de chaque directive
+    directives = {d.split()[0]: d.split()[1:]
+                  for d in r.headers["Content-Security-Policy"].split(";") if d.strip()}
+    assert "https://cdn.jsdelivr.net" in directives["script-src"]
+    assert directives["frame-ancestors"] == ["'none'"]
 
 
 def test_hsts_seulement_en_https(client):
