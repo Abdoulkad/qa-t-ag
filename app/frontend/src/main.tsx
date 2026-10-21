@@ -17,11 +17,14 @@ import MissionPage from "./pages/Mission";
 import PilotagePage from "./pages/Pilotage";
 import SuiviCas from "./pages/SuiviCas";
 import Utilisateurs from "./pages/Utilisateurs";
+import MotDePasse from "./pages/MotDePasse";
 
 function Protege({ children, role }: { children: ReactNode; role?: "ADMIN" }) {
   const { moi, chargement, a } = useSession();
   if (chargement) return <div className="charge">Chargement…</div>;
   if (!moi) return <Navigate to="/connexion" replace />;
+  // RA-55 : rien d'autre tant que le mot de passe provisoire n'est pas changé
+  if (moi.mot_de_passe_provisoire) return <MotDePasse impose />;
   if (role && !a(role)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -43,6 +46,7 @@ function Application() {
         <Route path="analyse" element={<Analyse />} />
         <Route path="missions/:id" element={<MissionPage />} />
         <Route path="cas" element={<SuiviCas />} />
+        <Route path="mot-de-passe" element={<MotDePasse />} />
         <Route path="utilisateurs" element={<Protege role="ADMIN"><Utilisateurs /></Protege>} />
         <Route path="configuration" element={<Protege role="ADMIN"><Configuration /></Protege>} />
       </Route>

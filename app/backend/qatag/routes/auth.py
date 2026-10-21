@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 from .. import connexions, journal
 from ..config import parametres
 from ..db import session_db
-from ..deps import utilisateur_courant
+from ..deps import utilisateur_connecte
 from ..models import Organisation, Utilisateur
 from ..securite import creer_jeton, hacher, verifier, verifier_factice
-from .schemas import Connexion, EtatAuth, Inscription, Jeton, UtilisateurSortie
+from .schemas import (ChangementMotDePasse, Connexion, EtatAuth, Inscription, Jeton,
+                      UtilisateurSortie)
 
 routeur = APIRouter(prefix="/api/auth", tags=["Authentification"])
 
@@ -81,9 +82,41 @@ def connexion(entree: Connexion, requete: Request, db: Session = Depends(session
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Compte désactivé")
     connexions.noter(db, email, ip, reussie=True)
     db.commit()
-    return Jeton(jeton=creer_jeton(u.id))
+    return Jeton(jeton=creer_jeton(u.id, u.version_session),
+                 mot_de_passe_provisoire=u.mot_de_passe_provisoire)
 
 
 @routeur.get("/moi", response_model=UtilisateurSortie)
-def moi(u: Utilisateur = Depends(utilisateur_courant)):
+def moi(u: Utilisateur = Depends(utilisateur_connecte)):
     return u
+
+
+@routeur.post("/mot-de-passe", response_model=Jeton)
+def changer_mot_de_passe(entree: ChangementMotDePasse, requete: Request,
+                         u: Utilisateur = Depends(utilisateur_connecte),
+                         db: Session = Depends(session_db)):
+    """RA-56 : l'utilisateur change son mot de passe (obligatoire s'il est provisoire).
+    Les autres sessions sont fermées (RA-58) ; celle-ci reçoit un nouveau jeton."""
+    ip = requete.client.host if requete.client else "inconnue"
+    # Même limitation que la connexion : pas de recherche de l'ancien mot de passe
+    attente = connexions.attente_minutes(db, u.email, ip)
+    if attente:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                            "Trop de tentatives. Réessayez dans %d minute%s."
+                            % (attente, "s" if attente > 1 else ""),
+                            headers={"Retry-After": str(attente * 60)})
+    if not verifier(entree.actuel, u.hash_mot_de_passe):
+        connexions.noter(db, u.email, ip, reussie=False)
+        db.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mot de passe actuel incorrect")
+    if entree.nouveau == entree.actuel:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "Le nouveau mot de passe doit être différent de l'actuel")
+    provisoire = u.mot_de_passe_provisoire
+    u.hash_mot_de_passe = hacher(entree.nouveau)
+    u.mot_de_passe_provisoire = False
+    u.version_session += 1
+    journal.ajouter(db, u.organisation_id, "mot_de_passe_change", acteur_id=u.id,
+                    details={"email": u.email, "provisoire_remplace": provisoire})
+    db.commit()
+    return Jeton(jeton=creer_jeton(u.id, u.version_session))

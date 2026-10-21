@@ -45,6 +45,12 @@ class Utilisateur(Base):
     roles: Mapped[list[str]] = mapped_column(ARRAY(String(20)), default=list)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # RA-55 : mot de passe attribué par un administrateur, à changer à la connexion
+    mot_de_passe_provisoire: Mapped[bool] = mapped_column(Boolean, default=False,
+                                                          server_default="false")
+    # RA-58 : incrémentée à chaque changement de mot de passe ; un jeton émis
+    # avec une version antérieure n'est plus accepté
+    version_session: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     __table_args__ = (
         CheckConstraint("cardinality(roles) >= 1", name="ck_utilisateur_au_moins_un_role"),

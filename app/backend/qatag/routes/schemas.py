@@ -20,6 +20,16 @@ class Connexion(BaseModel):
 class Jeton(BaseModel):
     jeton: str
     type: str = "bearer"
+    mot_de_passe_provisoire: bool = False
+
+
+class ChangementMotDePasse(BaseModel):
+    actuel: str = Field(max_length=200)
+    nouveau: str = Field(min_length=LONGUEUR_MIN_MOT_DE_PASSE, max_length=200)
+
+
+class ReinitialisationMotDePasse(BaseModel):
+    mot_de_passe: str = Field(min_length=LONGUEUR_MIN_MOT_DE_PASSE, max_length=200)
 
 
 class EtatAuth(BaseModel):
@@ -34,6 +44,7 @@ class UtilisateurSortie(BaseModel):
     roles: list[str]
     actif: bool
     cree_le: datetime
+    mot_de_passe_provisoire: bool = False
 
 
 class CreationUtilisateur(Inscription):

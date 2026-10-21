@@ -82,7 +82,10 @@ compte devient Analyste, Superviseur et Administrateur (RA-02). Choisissez
 ensuite l'IA dans **Configuration IA**.
 
 Les comptes suivants sont créés par un administrateur, page **Utilisateurs** :
-après le premier compte, l'inscription libre est fermée (RA-51).
+après le premier compte, l'inscription libre est fermée (RA-51). Le mot de
+passe choisi (bouton **Générer**) est provisoire : la personne le remplace à
+sa première connexion. En cas d'oubli, **Réinitialiser le mot de passe**
+attribue un nouveau mot de passe provisoire.
 
 ### Développer l'interface
 
@@ -111,6 +114,10 @@ npm run build
   même adresse IP), la connexion est refusée jusqu'à la fin de la fenêtre, même
   avec le bon mot de passe. Le blocage d'un compte existant est inscrit au
   journal (RA-52). Seuils réglables dans `.env`.
+- **Mots de passe** : provisoire pour tout compte créé ou réinitialisé par un
+  administrateur, à changer avant toute action ; changement libre via
+  **Mot de passe** (barre latérale) ; chaque changement ferme les autres
+  sessions du compte (RA-55 à RA-58).
 - **En-têtes HTTP** : politique de sécurité du contenu stricte, interdiction
   d'affichage dans un cadre, pas de mise en cache des réponses de l'API (RA-53).
 - **HTTPS** : indispensable dès que l'application est utilisée depuis un autre

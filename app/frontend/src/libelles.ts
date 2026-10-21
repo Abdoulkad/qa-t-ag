@@ -34,6 +34,8 @@ export const EVENEMENTS: Record<string, string> = {
   connexion_bloquee: "Connexion bloquée après trop d'échecs",
   roles_modifies: "Rôles modifiés",
   compte_desactive: "Compte désactivé",
+  mot_de_passe_change: "Mot de passe changé",
+  mot_de_passe_reinitialise: "Mot de passe réinitialisé",
   compte_reactive: "Compte réactivé",
   config_ia_modifiee: "IA modifiée",
   mission_creee: "Mission créée",
