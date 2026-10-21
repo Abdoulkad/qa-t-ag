@@ -404,7 +404,7 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 
 /* --- Vue de pilotage : cartes « à faire » colorées ------------------------ */
 .cartes-afaire { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-.carte-afaire { border-radius: 10px; padding: 16px; border: 1px solid; }
+.carte-afaire { border-radius: 10px; padding: 16px; border: 1px solid; border-top-width: 3px; }
 .carte-afaire-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .carte-afaire-titre { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .carte-afaire-icone { width: 30px; height: 30px; border-radius: 8px; color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
@@ -416,12 +416,16 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .carte-afaire .detail { opacity: 0.85; }
 .carte-afaire .rien { opacity: 0.8; font-size: 0.88rem; margin-top: 10px; }
 .carte-afaire.porte { background: #eeebfa; border-color: #d3cdf0; color: #3f3390; }
+.carte-afaire.porte { border-top-color: var(--porte); }
 .carte-afaire.porte .carte-afaire-icone { background: var(--porte); }
 .carte-afaire.attente { background: #fbf0dc; border-color: #efd9ad; color: #6f480c; }
+.carte-afaire.attente { border-top-color: var(--attente); }
 .carte-afaire.attente .carte-afaire-icone { background: var(--attente); }
 .carte-afaire.alerte { background: #f9e6e2; border-color: #efc6be; color: #82301f; }
+.carte-afaire.alerte { border-top-color: var(--alerte); }
 .carte-afaire.alerte .carte-afaire-icone { background: var(--alerte); }
 .carte-afaire.succes { background: #e3f2ea; border-color: #bfdfcd; color: #1f5c41; }
+.carte-afaire.succes { border-top-color: var(--succes); }
 .carte-afaire.succes .carte-afaire-icone { background: var(--succes); }
 
 /* Puces de filtre */
