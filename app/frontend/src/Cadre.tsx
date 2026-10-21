@@ -1,10 +1,58 @@
-import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { api, type Pilotage } from "./api";
+import { createContext, useContext, useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { api, type Pilotage, type Role } from "./api";
 import { initiales } from "./composants";
 import { Marque } from "./Logo";
 import { ROLES } from "./libelles";
 import { useSession } from "./session";
+
+/** Une page peut compléter le fil d'Ariane (ex. la référence d'une mission). */
+const FilContexte = createContext<(complement: string | null) => void>(() => {});
+export function useComplementFil(complement: string | null) {
+  const fixer = useContext(FilContexte);
+  useEffect(() => { fixer(complement); return () => fixer(null); }, [complement, fixer]);
+}
+
+const PAGES: Record<string, [string, string]> = {
+  "/": ["Espace QA", "Vue de pilotage"],
+  "/analyse": ["Espace QA", "Analyse des exigences"],
+  "/cas": ["Espace QA", "Suivi des cas"],
+  "/utilisateurs": ["Administration", "Utilisateurs"],
+  "/configuration": ["Administration", "Configuration IA"],
+};
+
+const ROLE_PRINCIPAL: Role[] = ["ADMIN", "SUPERVISEUR", "ANALYSTE"];
+
+/** Barre d'en-tête de chaque page : fil d'Ariane à gauche, profil connecté à droite. */
+function EnteteApp({ complement }: { complement: string | null }) {
+  const { pathname } = useLocation();
+  const { moi } = useSession();
+  if (!moi) return null;
+  const mission = pathname.startsWith("/missions/");
+  const [espace, page] = mission ? ["Espace QA", "Vue de pilotage"] : PAGES[pathname] ?? ["Espace QA", ""];
+  const principal = ROLE_PRINCIPAL.find((r) => moi.roles.includes(r));
+  return (
+    <header className="entete-app">
+      <nav aria-label="Fil d'Ariane" className="fil-ariane">
+        <span>{espace}</span>
+        <span className="separateur" aria-hidden="true">›</span>
+        {mission ? <Link to="/">{page}</Link> : <span aria-current="page" className="courant">{page}</span>}
+        {mission && <>
+          <span className="separateur" aria-hidden="true">›</span>
+          <span aria-current="page" className="courant">{complement ?? "Mission"}</span>
+        </>}
+      </nav>
+      <div className="profil" title={moi.roles.map((r) => ROLES[r]).join(", ")}>
+        <span className="profil-statut" aria-hidden="true" />
+        <span className="profil-role">{principal ? ROLES[principal] : ""}</span>
+        <span className="profil-separateur" aria-hidden="true" />
+        <span className="profil-nom">{moi.nom || moi.email}</span>
+        <span className="avatar">{initiales(moi.nom, moi.email)}</span>
+        <span className="invisible">connecté</span>
+      </div>
+    </header>
+  );
+}
 
 const trait = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
@@ -24,6 +72,7 @@ export function Icone({ nom }: { nom: string }) {
 export default function Cadre() {
   const { moi, a, deconnecter } = useSession();
   const [enAttente, setEnAttente] = useState(0);
+  const [complementFil, setComplementFil] = useState<string | null>(null);
 
   useEffect(() => {
     let actif = true;
@@ -58,17 +107,15 @@ export default function Cadre() {
           </>}
         </nav>
         <div className="barre-pied">
-          <div className="moi">
-            <span className="avatar">{initiales(moi.nom, moi.email)}</span>
-            <div className="moi-texte">
-              <div>{moi.nom || moi.email}</div>
-              <div>{moi.roles.map((r) => ROLES[r]).join(", ")}</div>
-            </div>
-          </div>
           <button className="bouton discret" onClick={deconnecter}><Icone nom="sortie" />Se déconnecter</button>
         </div>
       </aside>
-      <main className="page"><Outlet /></main>
+      <div className="principal">
+        <EnteteApp complement={complementFil} />
+        <FilContexte.Provider value={setComplementFil}>
+          <main className="page"><Outlet /></main>
+        </FilContexte.Provider>
+      </div>
     </div>
   );
 }

@@ -565,3 +565,24 @@ h2.titre-mono { font-size: 1.1rem; }
 .depot-formats { font: 0.8rem var(--police-code); color: var(--encre-douce); }
 .saisie-exigence { font-family: var(--police-code); font-size: 0.9rem; line-height: 1.6; border: 1.5px solid #8fb6df; background: #fff; }
 .panneau-exigence input[type="text"] { background: #fff; border-color: #a9c8e8; }
+
+/* --- Barre d'en-tête commune ---------------------------------------------- */
+.principal { min-width: 0; display: flex; flex-direction: column; }
+.entete-app {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; min-height: 60px; padding: 0 36px; background: var(--surface); border-bottom: 1px solid var(--trait);
+}
+.fil-ariane { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; color: var(--encre-douce); min-width: 0; }
+.fil-ariane a { color: var(--encre-douce); text-decoration: none; }
+.fil-ariane a:hover { color: var(--action); }
+.fil-ariane .separateur { color: var(--encre-pale); }
+.fil-ariane .courant { color: var(--encre); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profil { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; flex: none; }
+.profil-statut { width: 8px; height: 8px; border-radius: 50%; background: var(--succes); box-shadow: 0 0 0 3px var(--succes-pale); }
+.profil-role { color: var(--succes); font-weight: 500; }
+.profil-separateur { width: 1px; height: 18px; background: var(--trait); }
+.profil-nom { color: var(--encre); font-weight: 500; }
+@media (max-width: 860px) {
+  .entete-app { padding: 0 16px; }
+  .profil-nom, .profil-separateur { display: none; }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api, type EntreeJournal, type Mission, type Version } from "../api";
 import { MessageErreur, PastilleMission, useAction, useDonnees, useSuiviTache } from "../composants";
 import { date, EVENEMENTS } from "../libelles";
@@ -7,6 +7,7 @@ import CasTests from "./mission/CasTests";
 import Exigence, { traitee, type EtapeExigence } from "./mission/Exigence";
 import Porte from "./mission/Porte";
 import Tracabilite from "./mission/Tracabilite";
+import { useComplementFil } from "../Cadre";
 
 const NOM_TACHE: Record<string, string> = {
   ANALYSE: "L'analyse (AG-01)", REECRITURE: "La réécriture", CONCEPTION: "La conception (AG-02)",
@@ -38,6 +39,7 @@ export default function MissionPage() {
   const [vue, setVue] = useState<Vue | null>(null);
   const [numeroVersion, setNumeroVersion] = useState<number | null>(null);
   const suivi = useSuiviTache(recharger);
+  useComplementFil(m ? `${m.reference} · ${m.titre}` : null);
 
   // Reprend le suivi d'une tâche lancée ailleurs (ou avant un rechargement)
   useEffect(() => {
@@ -63,7 +65,6 @@ export default function MissionPage() {
     <div className="pile">
       <div className="entete-page" style={{ marginBottom: 0 }}>
         <div>
-          <div className="fil"><Link to="/">Vue de pilotage</Link> / <span className="ref">{m.reference}</span></div>
           <h1>{m.titre}</h1>
           <p className="rangee" style={{ marginTop: 6 }}>
             <PastilleMission statut={m.statut} />

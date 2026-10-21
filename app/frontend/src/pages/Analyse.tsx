@@ -49,7 +49,6 @@ export default function Analyse() {
   return (
     <form className="pile" onSubmit={envoyer} style={{ maxWidth: 1120 }}>
       <div>
-        <div className="fil">Espace QA <span aria-hidden="true">›</span> Analyse des exigences</div>
         <div className="surtitre">AG-01 · Exigences</div>
         <h1 className="titre-mono">Analyse des exigences</h1>
       </div>
