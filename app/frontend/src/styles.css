@@ -69,10 +69,10 @@ code, .ref { font-family: var(--police-code); font-size: 0.86em; }
 .marque-tiret { color: #3aa8d8; margin: 0 -0.12em; }   /* accent cyan discret ; tirets resserrés */
 .marque-sous { display: block; font-size: 0.72rem; color: var(--encre-pale); white-space: nowrap; }   /* signature sur une seule ligne */
 .nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-titre { font-size: 0.78rem; color: var(--encre-pale); padding: 8px 10px 4px; }
+.nav-titre { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--encre-pale); padding: 12px 10px 6px; }
 .nav a {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: var(--rayon-petit);
+  padding: 9px 10px; border-radius: var(--rayon-petit); font-size: 1.04rem;
   color: var(--encre-douce); text-decoration: none; font-weight: 500;
 }
 .nav a:hover { background: var(--fond); color: var(--encre); }
