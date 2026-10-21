@@ -55,7 +55,7 @@ code, .ref { font-family: var(--police-code); font-size: 0.86em; }
 
 /* --- Structure ------------------------------------------------------------ */
 
-.cadre { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
+.cadre { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
 .barre {
   background: var(--surface);
   border-right: 1px solid var(--trait);
@@ -67,7 +67,7 @@ code, .ref { font-family: var(--police-code); font-size: 0.86em; }
 .marque svg { flex: none; filter: drop-shadow(0 1px 2px rgba(23, 74, 131, 0.25)); }
 .marque-nom { display: block; font: 600 1.1rem var(--police-code); letter-spacing: 0.01em; color: #174a83; line-height: 1.2; }
 .marque-tiret { color: #3aa8d8; margin: 0 -0.12em; }   /* accent cyan discret ; tirets resserrés */
-.marque-sous { display: block; font-size: 0.75rem; color: var(--encre-pale); }
+.marque-sous { display: block; font-size: 0.72rem; color: var(--encre-pale); white-space: nowrap; }   /* signature sur une seule ligne */
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-titre { font-size: 0.78rem; color: var(--encre-pale); padding: 8px 10px 4px; }
 .nav a {
