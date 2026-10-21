@@ -81,6 +81,9 @@ Ouvrez http://localhost:8000 et cliquez sur **Créer un compte**. Le premier
 compte devient Analyste, Superviseur et Administrateur (RA-02). Choisissez
 ensuite l'IA dans **Configuration IA**.
 
+Les comptes suivants sont créés par un administrateur, page **Utilisateurs** :
+après le premier compte, l'inscription libre est fermée (RA-51).
+
 ### Développer l'interface
 
 Pour modifier l'interface avec rechargement instantané, lancez `npm run dev`
@@ -99,6 +102,68 @@ cd ..\frontend
 npm install
 npm run build
 ```
+
+## Sécurité
+
+- **Comptes** : après le premier compte, seul un administrateur crée les comptes
+  (`INSCRIPTION_LIBRE=false`, RA-51).
+- **Connexion** : après 5 échecs en 15 minutes sur un même e-mail (20 depuis une
+  même adresse IP), la connexion est refusée jusqu'à la fin de la fenêtre, même
+  avec le bon mot de passe. Le blocage d'un compte existant est inscrit au
+  journal (RA-52). Seuils réglables dans `.env`.
+- **En-têtes HTTP** : politique de sécurité du contenu stricte, interdiction
+  d'affichage dans un cadre, pas de mise en cache des réponses de l'API (RA-53).
+- **HTTPS** : indispensable dès que l'application est utilisée depuis un autre
+  poste que le serveur. Placez-la derrière un serveur web qui gère le certificat
+  (IIS, Nginx, Caddy…) ; l'en-tête HSTS est alors envoyé automatiquement.
+  Uvicorn fait confiance par défaut aux en-têtes `X-Forwarded-*` venant de la
+  même machine (127.0.0.1) : l'adresse IP réelle des utilisateurs sert alors à
+  la limitation des connexions. Si le serveur web est sur une autre machine,
+  lancez uvicorn avec `--forwarded-allow-ips=<adresse du serveur web>`, sinon
+  tous les utilisateurs partageraient la même adresse et le même compteur.
+
+## Sauvegardes
+
+Toutes les données sont dans la base : une sauvegarde PostgreSQL suffit.
+Depuis `app\backend`, environnement activé :
+
+```powershell
+python -m qatag.sauvegarde              # crée une sauvegarde dans app\sauvegardes
+python -m qatag.sauvegarde --lister     # liste les sauvegardes
+```
+
+Chaque sauvegarde est relue après création pour vérifier qu'elle est
+exploitable. Les 14 plus récentes sont conservées (`SAUVEGARDES_CONSERVEES`).
+Si `pg_dump` est introuvable, indiquez dans `.env` le dossier `bin` de
+PostgreSQL, par exemple `PG_BIN=C:\Program Files\PostgreSQL\16\bin`.
+
+Les sauvegardes contiennent toutes vos données : copiez régulièrement le
+dossier `app\sauvegardes` sur un autre support (disque externe, partage
+réseau). Une sauvegarde restée sur le même disque ne protège pas d'une panne
+de ce disque.
+
+**Sauvegarde automatique.** `sauvegarder.bat` lance la sauvegarde et note le
+résultat dans `app\backend\sauvegarde.log`. Lancez-le d'abord une fois à la
+main (double-clic) et vérifiez le journal, puis programmez-le chaque jour avec
+le Planificateur de tâches Windows, par exemple à 20 h :
+
+```powershell
+schtasks /create /tn "QA-T-AG sauvegarde" /tr "C:\chemin\vers\qa-t-ag\app\backend\sauvegarder.bat" /sc daily /st 20:00
+```
+
+Remplacez le chemin par celui de votre dépôt. S'il contient des espaces,
+créez plutôt la tâche dans l'interface du Planificateur de tâches (action :
+démarrer le programme `sauvegarder.bat`).
+
+**Restaurer.** Arrêtez le serveur, puis :
+
+```powershell
+python -m qatag.sauvegarde --restaurer qatag-20261021-200000.dump
+```
+
+La commande demande de taper `RESTAURER` pour confirmer. Le contenu actuel de
+la base est remplacé en une seule transaction : en cas d'erreur, la base
+reste dans son état précédent.
 
 ## Lancer les tests
 

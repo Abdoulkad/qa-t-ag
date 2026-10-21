@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { MessageErreur, useAction } from "../composants";
 import { Marque } from "../Logo";
@@ -12,6 +12,13 @@ export default function Connexion() {
   const [motDePasse, setMotDePasse] = useState("");
   const [voir, setVoir] = useState(false);
   const { enCours, erreur, lancer } = useAction();
+  // RA-51 : après le premier compte, seul un administrateur crée les comptes
+  const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
+  useEffect(() => {
+    api<{ inscription_ouverte: boolean }>("/auth/etat")
+      .then((e) => setInscriptionOuverte(e.inscription_ouverte))
+      .catch(() => setInscriptionOuverte(false));
+  }, []);
 
   const envoyer = (ev: FormEvent) => {
     ev.preventDefault();
@@ -55,10 +62,12 @@ export default function Connexion() {
               : "Quelques secondes suffisent : nom, e-mail et mot de passe."}
           </p>
 
-          <div className="bascule" role="group" aria-label="Choisir une action">
-            <button type="button" aria-pressed={mode === "connexion"} onClick={() => setMode("connexion")}>Se connecter</button>
-            <button type="button" aria-pressed={mode === "inscription"} onClick={() => setMode("inscription")}>Créer un compte</button>
-          </div>
+          {inscriptionOuverte && (
+            <div className="bascule" role="group" aria-label="Choisir une action">
+              <button type="button" aria-pressed={mode === "connexion"} onClick={() => setMode("connexion")}>Se connecter</button>
+              <button type="button" aria-pressed={mode === "inscription"} onClick={() => setMode("inscription")}>Créer un compte</button>
+            </div>
+          )}
 
           {mode === "inscription" && (
             <div className="champ">
@@ -102,12 +111,16 @@ export default function Connexion() {
               : "Le premier compte de l'installation reçoit tous les rôles. Les suivants sont Analyste QA ; un administrateur peut les promouvoir."}
           </p>
         </form>
-        <p className="connexion-pied">
-          {mode === "connexion" ? "Pas encore de compte ? " : "Déjà un compte ? "}
-          <button type="button" className="lien" onClick={() => setMode(mode === "connexion" ? "inscription" : "connexion")}>
-            {mode === "connexion" ? "Créez-en un en une minute" : "Se connecter"}
-          </button>
-        </p>
+        {inscriptionOuverte ? (
+          <p className="connexion-pied">
+            {mode === "connexion" ? "Pas encore de compte ? " : "Déjà un compte ? "}
+            <button type="button" className="lien" onClick={() => setMode(mode === "connexion" ? "inscription" : "connexion")}>
+              {mode === "connexion" ? "Créez-en un en une minute" : "Se connecter"}
+            </button>
+          </p>
+        ) : (
+          <p className="connexion-pied">Pas encore de compte ? Demandez-le à un administrateur QA-T-AG.</p>
+        )}
       </section>
     </div>
   );

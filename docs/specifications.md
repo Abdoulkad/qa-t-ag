@@ -29,6 +29,11 @@ existants (`webapp/scripts/`).
 - **RA-01** Les rôles se cumulent. Un utilisateur a au moins un rôle.
 - **RA-02** Le premier compte créé dans une organisation reçoit les trois rôles.
   Les comptes suivants reçoivent `ANALYSTE`.
+- **RA-51** Seul le premier compte de l'installation peut s'inscrire lui-même.
+  Ensuite, seul un `ADMIN` crée les comptes, sauf si l'inscription libre est
+  explicitement ouverte dans la configuration du serveur (`INSCRIPTION_LIBRE`,
+  fermée par défaut). La page de connexion ne propose l'inscription que si
+  elle est ouverte.
 - **RA-03** Seul un `ADMIN` attribue ou retire des rôles. Un `ADMIN` ne peut
   pas retirer son propre rôle `ADMIN` s'il est le dernier de l'organisation.
 - **RA-04** Un compte désactivé ne peut plus se connecter. Ses actions passées
@@ -44,6 +49,19 @@ existants (`webapp/scripts/`).
   minimum, stocké haché (bcrypt), jamais en clair ni dans les journaux.
 - **RA-07** Session par jeton signé à durée limitée (8 h par défaut,
   configurable).
+- **RA-52** Après 5 échecs de connexion en 15 minutes sur un même e-mail, ou
+  20 depuis une même adresse IP, la connexion est refusée (HTTP 429, délai
+  d'attente indiqué) jusqu'à ce que les échecs sortent de la fenêtre, même
+  avec le bon mot de passe. Une connexion réussie remet le compteur de l'e-mail
+  à zéro. La réponse est identique que le compte existe ou non, et la
+  vérification prend le même temps. Le blocage d'un compte existant est inscrit
+  au journal (`connexion_bloquee`). Seuils et fenêtre configurables. Les
+  traces de tentatives (e-mail, adresse IP, date, succès, jamais le mot de
+  passe) sont purgées après 30 jours.
+- **RA-53** Chaque réponse du serveur porte les en-têtes de sécurité :
+  politique de sécurité du contenu limitée aux fichiers de l'application,
+  interdiction d'affichage dans un cadre, `nosniff`, pas de référent ; les
+  réponses de l'API ne sont jamais mises en cache ; HSTS en HTTPS.
 
 ## 3. Missions et versions
 
@@ -260,6 +278,15 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
   une modification directe en base est détectable par vérification de la
   chaîne.
 
+## 9 bis. Sauvegardes
+
+- **RA-54** La commande `python -m qatag.sauvegarde` sauvegarde toute la base
+  (format pg_dump « custom »), vérifie que la sauvegarde se relit et contient
+  le journal, et ne conserve que les N plus récentes (14 par défaut). La
+  restauration remplace la base en une seule transaction, après confirmation
+  explicite ; en cas d'erreur, la base reste inchangée. Le mot de passe de la
+  base ne passe jamais par la ligne de commande.
+
 ## 10. IA configurable
 
 | Fournisseur | Protocole | Point d'accès (vérifié dans la doc éditeur, oct. 2026) |
@@ -313,6 +340,7 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 | `journal` | Entrées chaînées en ajout seul |
 | `tache_ia` | Type, état, erreur, horodatages |
 | `config_ia` | Fournisseur et modèle actifs par organisation |
+| `tentative_connexion` | Tentatives de connexion (e-mail, adresse IP, date, succès) — RA-52 |
 
 ## 12. Traçabilité règles ↔ tests
 
@@ -334,6 +362,8 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-46 | `test_cahier_cas.py` | 2 |
 | RA-47, RA-48 | `test_regles_couverture.py` | 2 |
 | RA-17 (défauts retenus), RA-49, RA-50 | `test_revue_v2.py` | 2 |
+| RA-51 à RA-53 | `test_securite.py` | S1 |
+| RA-54 | `test_sauvegarde.py` | S1 |
 | RA-27 à RA-33 | à venir (recette, export Word) | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un

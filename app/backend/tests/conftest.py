@@ -10,6 +10,9 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://qatag:qatag@localhost:5432/qatag_test")
 os.environ["SECRET_KEY"] = "cle-de-test-suffisamment-longue-pour-hs256"
 os.environ["MODE_TACHES"] = "immediat"
+# Les tests créent plusieurs comptes par l'inscription ; l'inscription fermée
+# (valeur par défaut, RA-51) est testée à part dans test_securite.py
+os.environ["INSCRIPTION_LIBRE"] = "true"
 os.environ["DEEPSEEK_API_KEY"] = "cle-factice"
 os.environ["ANTHROPIC_API_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
@@ -181,7 +184,7 @@ def schema():
 def base_vide():
     tables = ("preuve, anomalie, execution, trace, cas_test, critere_acceptation, "
               "question_metier, defaut, decision_porte, tache_ia, journal, version_exigence, "
-              "participant, mission, config_ia, utilisateur, organisation")
+              "participant, mission, config_ia, utilisateur, organisation, tentative_connexion")
     with moteur.begin() as c:
         # Les tests seuls contournent la protection du journal, pour repartir à vide
         c.execute(text("ALTER TABLE journal DISABLE TRIGGER USER"))

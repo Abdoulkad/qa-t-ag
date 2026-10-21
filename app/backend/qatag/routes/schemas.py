@@ -22,6 +22,10 @@ class Jeton(BaseModel):
     type: str = "bearer"
 
 
+class EtatAuth(BaseModel):
+    inscription_ouverte: bool
+
+
 class UtilisateurSortie(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

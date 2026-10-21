@@ -25,6 +25,47 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
 
+# --- En-têtes de sécurité (RA-53) ---------------------------------------------
+# L'interface n'utilise que ses propres fichiers : tout le reste est refusé.
+CSP_INTERFACE = ("default-src 'self'; script-src 'self'; style-src 'self'; "
+                 "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+                 "object-src 'none'; base-uri 'self'; form-action 'self'; "
+                 "frame-ancestors 'none'")
+# La documentation de l'API (/docs, /redoc) charge Swagger et ReDoc depuis un CDN
+CSP_DOCUMENTATION = ("default-src 'self'; "
+                     "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+                     "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+                     "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.redoc.ly; "
+                     "worker-src 'self' blob:; connect-src 'self'; object-src 'none'; "
+                     "base-uri 'self'; frame-ancestors 'none'")
+ENTETES_SECURITE = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
+
+
+@app.middleware("http")
+async def entetes_securite(request: Request, call_next):
+    reponse = await call_next(request)
+    chemin = request.url.path
+    for nom, valeur in ENTETES_SECURITE.items():
+        reponse.headers.setdefault(nom, valeur)
+    documentation = chemin in ("/docs", "/redoc") or chemin.startswith("/docs/")
+    reponse.headers.setdefault("Content-Security-Policy",
+                               CSP_DOCUMENTATION if documentation else CSP_INTERFACE)
+    if chemin.startswith("/api/"):
+        # Données métier : jamais conservées par le navigateur ou un proxy
+        reponse.headers.setdefault("Cache-Control", "no-store")
+    if request.url.scheme == "https":
+        # Seulement en HTTPS : en HTTP, l'en-tête serait ignoré par le navigateur
+        reponse.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return reponse
+
+
 @app.exception_handler(RegleViolee)
 def regle_violee(_: Request, e: RegleViolee):
     """Une règle métier refuse l'action : 409 avec la règle et le détail."""

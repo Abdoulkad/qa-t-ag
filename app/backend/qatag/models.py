@@ -329,3 +329,15 @@ class TacheIA(Base):
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     termine_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (CheckConstraint(_dans("etat", ETATS_TACHE), name="ck_tache_etat"),)
+
+
+class TentativeConnexion(Base):
+    """RA-52 : trace des tentatives de connexion, pour limiter les essais.
+    Hors organisation : l'e-mail tenté peut ne correspondre à aucun compte."""
+    __tablename__ = "tentative_connexion"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    ip: Mapped[str] = mapped_column(String(45), index=True)
+    reussie: Mapped[bool] = mapped_column(Boolean, default=False)
+    horodatage: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant,
+                                                 index=True)
