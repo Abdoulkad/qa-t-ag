@@ -431,24 +431,45 @@ def tracabilite(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
 def suivi_des_cas(q: str | None = None, mission_id: int | None = None,
                   statut: str | None = None, u: Utilisateur = Depends(utilisateur_courant),
                   db: Session = Depends(session_db)):
-    """Suivi des cas : tous les cas des versions courantes des missions visibles."""
+    """Suivi des cas : tous les cas des versions courantes des missions visibles.
+
+    `statut` : PRET, INCOMPLET, A_CLARIFIER (conception) ou EXECUTE, NON_EXECUTE
+    (recette). `q` cherche dans le cas, sa mission, son motif et les commentaires
+    d'exécution. Les compteurs portent sur les cas affichés."""
     missions_visibles = db.scalars(svc.visible_par(u)).all()
     if mission_id:
         missions_visibles = [m for m in missions_visibles if m.id == mission_id]
     courantes = {svc.version_courante(m).id: m for m in missions_visibles if m.versions}
     requete = select(CasTest).where(CasTest.version_id.in_(list(courantes)))
-    if statut:
+    if statut in ("PRET", "INCOMPLET", "A_CLARIFIER"):
         requete = requete.where(CasTest.statut == statut)
-    if q:
-        motif = "%%%s%%" % q.strip()
-        requete = requete.where(CasTest.code.ilike(motif) | CasTest.titre.ilike(motif) |
-                                CasTest.exigence.ilike(motif))
     cas = db.scalars(requete.order_by(CasTest.version_id.desc(), CasTest.code)).all()
+    executions: dict[int, list[Execution]] = {}
+    for e in db.scalars(select(Execution).where(Execution.cas_id.in_([c.id for c in cas]))
+                        .order_by(Execution.id)).all():
+        executions.setdefault(e.cas_id, []).append(e)
+    if statut == "EXECUTE":
+        cas = [c for c in cas if c.id in executions]
+    elif statut == "NON_EXECUTE":
+        cas = [c for c in cas if c.id not in executions]
+    if q and q.strip():
+        cle = q.strip().lower()
+
+        def correspond(c: CasTest) -> bool:
+            m = courantes[c.version_id]
+            champs = [c.code, c.titre, c.exigence, c.motif_statut, m.reference, m.titre] + \
+                     [e.commentaire for e in executions.get(c.id, [])]
+            return any(cle in (x or "").lower() for x in champs)
+        cas = [c for c in cas if correspond(c)]
     refs = _refs(db, [c.id for c in cas])
     compte = {s: 0 for s in ("PRET", "INCOMPLET", "A_CLARIFIER")}
     for c in cas:
         compte[c.statut] += 1
+    executes = sum(1 for c in cas if c.id in executions)
     return {"total": len(cas), "par_statut": compte,
-            "cas": [{**_cas(c, refs[c.id]), "mission": {
-                "id": courantes[c.version_id].id, "reference": courantes[c.version_id].reference,
-                "titre": courantes[c.version_id].titre}} for c in cas]}
+            "executes": executes, "non_executes": len(cas) - executes,
+            "cas": [{**_cas(c, refs[c.id]),
+                     "execution": executions[c.id][-1].statut if c.id in executions else None,
+                     "mission": {"id": courantes[c.version_id].id,
+                                 "reference": courantes[c.version_id].reference,
+                                 "titre": courantes[c.version_id].titre}} for c in cas]}

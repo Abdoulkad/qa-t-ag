@@ -127,6 +127,22 @@ def test_suivi_des_cas(client, admin, ia):
     assert r["par_statut"] == {"PRET": 2, "INCOMPLET": 1, "A_CLARIFIER": 1}
     assert client.get("/api/cas?q=expiré", headers=admin).json()["total"] == 1
     assert client.get("/api/cas?statut=PRET", headers=admin).json()["total"] == 2
+    # recherche élargie à la mission et compteurs d'exécution
+    assert client.get("/api/cas?q=US-042", headers=admin).json()["total"] == 4
+    assert (r["executes"], r["non_executes"]) == (0, 4)
+    from qatag.db import SessionLocale
+    from qatag.models import CasTest, Execution
+    with SessionLocale() as db:
+        ct1 = db.query(CasTest).filter_by(code="CT-001").one()
+        db.add(Execution(cas_id=ct1.id, statut="PASS", commentaire="lien refusé comme prévu",
+                         testeur_id=1))
+        db.commit()
+    r = client.get("/api/cas", headers=admin).json()
+    assert (r["executes"], r["non_executes"]) == (1, 3)
+    assert next(c for c in r["cas"] if c["code"] == "CT-001")["execution"] == "PASS"
+    assert client.get("/api/cas?statut=EXECUTE", headers=admin).json()["total"] == 1
+    assert client.get("/api/cas?statut=NON_EXECUTE", headers=admin).json()["total"] == 3
+    assert client.get("/api/cas?q=refusé comme", headers=admin).json()["total"] == 1
 
 
 def test_regle_statut_cas_unitaire():

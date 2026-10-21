@@ -523,3 +523,23 @@ details.replie summary { cursor: pointer; color: var(--action); font-size: 0.9re
 .barre-lot .bouton { background: #fff; border-color: #fff; color: var(--encre); }
 .barre-lot .bouton.discret { background: transparent; border-color: transparent; color: #c5d3df; }
 .ligne-phrase { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 10px; align-items: baseline; padding: 4px 0; }
+
+/* --- Suivi des cas : cartes indicateurs et filtres ----------------------- */
+:root { --sarcelle: #1d7471; --sarcelle-pale: #dff0ee; }
+.titre-icone { display: flex; align-items: center; gap: 10px; font-family: var(--police-code); font-weight: 600; }
+.titre-icone svg { color: var(--action); }
+.cartes-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.carte-kpi { border-radius: 10px; border: 1px solid; border-top-width: 6px; padding: 14px 18px 16px; }
+.carte-kpi-libelle { font-size: 0.9rem; color: var(--encre-douce); }
+.carte-kpi-valeur { font: 600 1.6rem/1.2 var(--police-code); color: var(--encre); margin-top: 4px; }
+.carte-kpi.bleu { background: #e1eefa; border-color: #bcd5ee; border-top-color: var(--action); }
+.carte-kpi.attente { background: #f7ece0; border-color: #e9d2b4; border-top-color: var(--attente); }
+.carte-kpi.succes { background: #e1f1e9; border-color: #bfdfcd; border-top-color: var(--succes); }
+.carte-kpi.sarcelle { background: var(--sarcelle-pale); border-color: #b7dbd7; border-top-color: var(--sarcelle); }
+.filtres { padding: 16px 18px 18px; border-color: #bcd5ee; box-shadow: 0 1px 3px rgba(23, 74, 131, 0.08); }
+.filtres-titre { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--action); margin-bottom: 10px; }
+.filtres-champs { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.filtres select, .filtres input { background: var(--surface-bleutee); }
+.champ-recherche { position: relative; }
+.champ-recherche svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--encre-pale); pointer-events: none; }
+.champ-recherche input { padding-left: 34px; width: 100%; }
