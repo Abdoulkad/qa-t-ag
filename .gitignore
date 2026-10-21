@@ -9,3 +9,7 @@ app/backend/.env
 app/donnees/
 __pycache__/
 .pytest_cache/
+app/frontend/dist/
+
+# Cache de compilation TypeScript
+*.tsbuildinfo

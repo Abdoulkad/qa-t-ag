@@ -1,7 +1,9 @@
 """Tests sur un vrai PostgreSQL (base qatag_test), sans appel IA réel."""
 import json
+import time
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 os.environ["DATABASE_URL"] = os.environ.get(
@@ -34,6 +36,7 @@ US_TEST = (
 RAPPORT_IA = """# Revue SFD — us-042
 
 ## Alerte sécurité
+Aucune
 
 ## Inventaire REQ et BR
 - REQ-001 — mot de passe sécurisé
@@ -42,33 +45,50 @@ RAPPORT_IA = """# Revue SFD — us-042
 ### DEF-001 — Ambiguïté — Bloquante
 - **Section** : US-042
 - **Citation** : « durée limitée »
+- **Constat** : La durée de validité du lien n'est pas chiffrée.
+- **Justification** : Testabilité : sans durée, aucun cas d'expiration ne peut être conçu.
 - **Question** : Quelle est la durée de validité exacte du lien ?
 
 ### DEF-002 — Terme non défini — Majeure
 - **Section** : REQ-001
 - **Citation** : « sécurisé »
+- **Constat** : Les règles de complexité ne sont pas définies.
 - **Question** : Quelles règles de complexité définissent un mot de passe sécurisé ?
 
 ### DEF-003 — Exigence non testable — Mineure
 - **Section** : US-042
 - **Citation** : « facilement et sans effort »
+- **Constat** : Aucun critère mesurable.
 - **Question** : Comment mesurer « facilement » ?
+
+## Questions complémentaires
+Aucune
 
 ## Statut du livrable
 A_CLARIFIER
 """
 
 
-REECRITURE_IA = """## Exigence réécrite
+REECRITURE_IA = """## User Story réécrite
 En tant qu'utilisateur ayant oublié son mot de passe, je reçois un lien de
 réinitialisation valable 30 minutes et je définis un nouveau mot de passe.
+
+## Règles métier
+### RG-01
+- **Règle** : L'utilisateur réinitialise son mot de passe par un lien valable une durée limitée.
+- **Sources** : « réinitialiser son mot de passe facilement » ; « durée limitée »
+### RG-02
+- **Règle** : Le nouveau mot de passe respecte la politique de sécurité.
+- **Sources** : « le nouveau mot de passe doit être sécurisé »
 
 ## Critères d'acceptation
 ### CA-01
 - **Critère** : Étant donné un lien émis il y a 31 minutes, quand je l'ouvre, alors il est refusé.
+- **Règles** : RG-01
 - **Sources** : « durée limitée » ; Q-1
 ### CA-02
 - **Critère** : Étant donné un nouveau mot de passe de 7 caractères, quand je valide, alors il est refusé.
+- **Règles** : RG-02
 - **Sources** : Q-2
 ### CA-03
 - **Critère** : Étant donné une réinitialisation réussie, alors un SMS de confirmation est envoyé.
@@ -97,6 +117,9 @@ class IAFactice:
         self.reponses = {"revue": RAPPORT_IA, "reecriture": REECRITURE_IA,
                          "conception": CONCEPTION_IA}
         self.statut_http = 200
+        self.pauses = []
+        self.pannes = []      # exceptions httpx levées aux premiers appels
+        self.flux = False     # répondre en SSE (text/event-stream)
 
     @property
     def reponse(self):
@@ -114,13 +137,31 @@ class IAFactice:
             return "conception"
         return "revue"
 
+    @staticmethod
+    def _sse(texte, anthropic):
+        moities = [texte[:len(texte) // 2], texte[len(texte) // 2:]]
+        lignes = ["", ": keep-alive", ""]
+        for m in moities:
+            obj = ({"type": "content_block_delta", "delta": {"type": "text_delta", "text": m}}
+                   if anthropic else {"choices": [{"delta": {"content": m}}]})
+            lignes += ["data: " + json.dumps(obj), ""]
+        lignes += ["data: [DONE]", ""]
+        return "\n".join(lignes).encode()
+
     def __call__(self, requete: httpx.Request) -> httpx.Response:
         corps = json.loads(requete.content)
         self.appels.append({"url": str(requete.url), "entetes": dict(requete.headers),
                             "corps": corps})
+        if self.pannes:
+            raise self.pannes.pop(0)
         if self.statut_http != 200:
             return httpx.Response(self.statut_http, json={"error": "refus"})
         texte = self.reponses[self._agent(corps)]
+        if isinstance(texte, list):          # réponses successives : la dernière se répète
+            texte = texte.pop(0) if len(texte) > 1 else texte[0]
+        if self.flux:
+            return httpx.Response(200, headers={"content-type": "text/event-stream"},
+                                  content=self._sse(texte, "anthropic" in str(requete.url)))
         if "anthropic" in str(requete.url):
             return httpx.Response(200, json={"content": [{"type": "text", "text": texte}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": texte}}]})
@@ -129,9 +170,9 @@ class IAFactice:
 @pytest.fixture(scope="session", autouse=True)
 def schema():
     env = dict(os.environ)
-    subprocess.run(["alembic", "downgrade", "base"], cwd=BACKEND, env=env, check=True,
+    subprocess.run([sys.executable, "-m", "alembic", "downgrade", "base"], cwd=BACKEND, env=env, check=True,
                    capture_output=True)
-    subprocess.run(["alembic", "upgrade", "head"], cwd=BACKEND, env=env, check=True,
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=BACKEND, env=env, check=True,
                    capture_output=True)
     yield
 
@@ -153,8 +194,10 @@ def base_vide():
 def ia():
     faux = IAFactice()
     fournisseurs.transport_http = httpx.MockTransport(faux)
+    fournisseurs.attendre = faux.pauses.append     # pas d'attente réelle
     yield faux
     fournisseurs.transport_http = None
+    fournisseurs.attendre = time.sleep
 
 
 @pytest.fixture

@@ -40,44 +40,78 @@ def analyser_rapport_revue(rapport: str, texte_sfd: str) -> dict:
     1 = citations absentes du texte, 2 = rapport mal formé.
     """
     cr = _module("controler_revue")
+    rapport, corrections = normaliser_rapport_revue(rapport)
     defs, statut, erreurs = cr.parser_rapport(rapport)
     if erreurs:
-        return {"code": 2, "erreurs": erreurs, "statut": statut, "defauts": []}
+        return {"code": 2, "erreurs": erreurs, "corrections": corrections, "statut": statut,
+                "defauts": []}
     absentes = set(cr.verifier_citations(defs, texte_sfd))
-
-    # Le script ne lit pas les questions : on les rattache à leur DEF ici.
-    questions, courant = {}, None
-    for ligne in rapport.splitlines():
-        m = cr.RE_DEF.match(ligne)
-        if m:
-            courant = m.group(1)
-            continue
-        mq = RE_QUESTION.match(ligne)
-        if mq and courant:
-            questions[courant] = mq.group(1)
-
     defauts = [{
         "code": d["id"], "categorie": d["categorie"], "gravite": d["gravite"],
         "section": d["section"], "citation": d["citation"],
         "citation_verifiee": d["id"] not in absentes,
-        "question": questions.get(d["id"]),
+        "constat": d.get("constat"), "justification": d.get("justification"),
+        "question": d.get("question"),
     } for d in defs]
     return {"code": 1 if absentes else 0,
             "erreurs": ["Citation absente du texte : %s" % c for c in sorted(absentes)],
-            "statut": statut, "defauts": defauts}
+            "corrections": corrections, "statut": statut, "defauts": defauts,
+            "complementaires": cr.parser_complementaires(rapport),       # QA-REV-02 §7
+            "doublons": cr.doublons(defs)}                               # QA-REV-02 §8
+
+
+def normaliser_rapport_revue(rapport: str) -> tuple[str, list[str]]:
+    """Ajoute les sections dont l'absence ne change pas le fond du rapport.
+
+    - « ## Alerte sécurité » : sans alerte, l'IA omet souvent la section ;
+      on l'ajoute vide (« Aucune »).
+    - « ## Statut du livrable » manquant : on ajoute A_CLARIFIER, le statut
+      le plus prudent (repris de l'ancienne app Streamlit).
+    Les sections de fond (Inventaire, Défauts) ne sont jamais inventées :
+    leur absence reste une erreur. Chaque ajout est tracé.
+    """
+    corrections = []
+    if "## Alerte sécurité" not in rapport:
+        ancre = rapport.find("## Inventaire REQ et BR")
+        bloc = "## Alerte sécurité\nAucune\n\n"
+        rapport = rapport[:ancre] + bloc + rapport[ancre:] if ancre >= 0 else bloc + rapport
+        corrections.append("section « Alerte sécurité » absente : ajoutée vide")
+    if not re.search(r"^##\s+Questions compl[ée]mentaires\s*$", rapport, re.MULTILINE | re.IGNORECASE):
+        m = re.search(r"^##\s+Statut du livrable\s*$", rapport, re.MULTILINE)
+        bloc = "## Questions complémentaires\nAucune\n\n"
+        rapport = rapport[:m.start()] + bloc + rapport[m.start():] if m else rapport + "\n\n" + bloc
+        corrections.append("section « Questions complémentaires » absente : ajoutée vide")
+    if not re.search(r"^##\s+Statut du livrable\s*$", rapport, re.MULTILINE):
+        rapport = rapport.rstrip() + "\n\n## Statut du livrable\nA_CLARIFIER\n"
+        corrections.append("statut du livrable absent : A_CLARIFIER ajouté")
+    return rapport, corrections
 
 
 def verifier_reecriture(origine: str, rapport: str, questions_repondues: list[str]) -> dict:
-    """RA-19, RA-20 : verifier_reecriture.py tranche SOURCE / HYPOTHESE."""
-    vr = _module("verifier_reecriture")
-    code, texte, criteres, erreurs = vr.verifier(origine, rapport, questions_repondues)
-    return {"code": code, "texte": texte, "criteres": criteres, "erreurs": erreurs}
+    """RA-19, RA-20, RA-47 : verifier_reecriture.py tranche SOURCE / HYPOTHESE pour
+    les règles métier et les critères. Retourne code, texte, regles, criteres,
+    phrases, points, erreurs."""
+    return _module("verifier_reecriture").analyser(origine, rapport, questions_repondues)
+
+
+def phrases_source(origine: str) -> list[dict]:
+    """RA-48 : phrases numérotées du texte d'origine ({numero, texte, titre})."""
+    return _module("verifier_reecriture").phrases_source(origine)
+
+
+def est_cadrage(phrase: str) -> bool:
+    """RA-48 : rôle (« En tant que… ») ou bénéfice (« Afin de… ») d'une User Story."""
+    return _module("verifier_reecriture").est_cadrage(phrase)
+
+
+def phrase_couverte(phrase: str, citations: list[str]) -> bool:
+    return _module("verifier_reecriture").phrase_couverte(phrase, citations)
 
 
 EN_TETE_CAS = ["ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",
                "Préconditions", "Données de test", "Étapes", "Résultat attendu",
                "Statut livrable"]
-RE_REFERENCE = re.compile(r"\b(?:REQ|BR|CA)-\d+\b")
+RE_REFERENCE = re.compile(r"\b(?:REQ|BR|CA|RG)-\d+\b")   # RG : règles métier (RA-47)
 RE_JUSTIF = re.compile(r"^\s*(CT-\d{3})\s*:\s*(.+?)\s*$")
 
 
@@ -166,3 +200,42 @@ def statut_agent(valeur: str) -> str:
         return st.normaliser_statut_agent(valeur)
     except ValueError:
         return "A_CLARIFIER"
+
+
+# --- Cahier des cas de test (gabarit Word DSI) -------------------------------
+
+def _cle(valeur: str) -> str:
+    return re.sub(r"\s+", "", (valeur or "").lower())
+
+
+def valeur_gabarit(valeur: str, permises: tuple[str, ...]) -> str | None:
+    """Ramène « Sécurité / Habilitation » ou « haute » au libellé exact attendu par le
+    gabarit (une case ☒ doit être cochée). None si la valeur n'y correspond pas."""
+    return next((p for p in permises if _cle(p) == _cle(valeur)), None)
+
+
+def cahier_cas(lignes: list[list[str]], bandeau: str, sortie: str) -> None:
+    """Remplit le gabarit Word avec cahier_word.py (recopie sans reformuler), puis
+    insère avant le premier cas un bandeau d'identification de la version."""
+    import csv
+
+    import docx
+
+    cw = _module("cahier_word")
+    fd, chemin_csv = tempfile.mkstemp(suffix=".csv")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            ecrivain = csv.writer(f, delimiter=";")
+            ecrivain.writerow(cw.EN_TETE_CAS)
+            ecrivain.writerows(lignes)
+        code, message = cw.cahier(str(parametres().gabarit_cahier), chemin_csv, sortie)
+    finally:
+        os.remove(chemin_csv)
+    if code != 0:
+        raise RuntimeError("cahier_word.py : %s" % message)
+    doc = docx.Document(sortie)
+    premier = next(p for p in doc.paragraphs if p.text.startswith(lignes[0][0] + " : "))
+    for i, texte in enumerate(bandeau.split("\n")):
+        run = premier.insert_paragraph_before().add_run(texte)
+        run.bold = i == 0
+    doc.save(sortie)

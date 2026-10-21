@@ -80,3 +80,60 @@ def test_echec_ia_trace_et_mission_en_echec(client, admin, ia):
     assert t["etat"] == "ECHEC" and "HTTP 500" in t["erreur"]
     m = client.get("/api/missions/%d" % r.json()["mission"]["id"], headers=admin).json()
     assert m["statut"] == "ECHEC_ANALYSE"
+
+
+def test_requete_demande_le_flux_continu(ia):
+    fournisseurs.generer("deepseek", "deepseek-flash", "SYS", "USR")
+    assert ia.appels[0]["corps"]["stream"] is True
+
+
+@pytest.mark.parametrize("code", ["deepseek", "anthropic"])
+def test_reponse_en_flux_lue_malgre_les_keep_alive(ia, monkeypatch, code):
+    monkeypatch.setattr(parametres(), "anthropic_api_key", "cle-anthropic")
+    ia.flux = True
+    assert fournisseurs.generer(code, "m", "s", "u") == ia.reponse
+
+
+def test_coupure_reseau_retentee_puis_reussie(ia):
+    import httpx
+    ia.pannes = [httpx.RemoteProtocolError("Server disconnected")]
+    assert fournisseurs.generer("deepseek", "m", "s", "u") == ia.reponse
+    assert ia.pauses == [5] and len(ia.appels) == 2
+
+
+def test_coupures_repetees_message_clair(ia):
+    import httpx
+    ia.pannes = [httpx.RemoteProtocolError("x") for _ in range(3)]
+    with pytest.raises(fournisseurs.ErreurIA) as e:
+        fournisseurs.generer("deepseek", "m", "s", "u")
+    assert "connexion coupée par le serveur" in str(e.value)
+    assert "échec après 3 tentatives" in str(e.value) and ia.pauses == [5, 20]
+
+
+def test_surcharge_503_retentee_mais_pas_401(ia):
+    ia.statut_http = 503
+    with pytest.raises(fournisseurs.ErreurIA):
+        fournisseurs.generer("deepseek", "m", "s", "u")
+    assert len(ia.appels) == 3
+    ia.appels.clear(); ia.statut_http = 401
+    with pytest.raises(fournisseurs.ErreurIA):
+        fournisseurs.generer("deepseek", "m", "s", "u")
+    assert len(ia.appels) == 1
+
+
+def test_reponse_tronquee_signalee(ia):
+    import httpx
+    fournisseurs.transport_http = httpx.MockTransport(lambda r: httpx.Response(200, json={
+        "choices": [{"message": {"content": "ID;Titre\nCT-001;dé"}, "finish_reason": "length"}]}))
+    with pytest.raises(fournisseurs.ErreurIA) as e:
+        fournisseurs.generer("deepseek", "m", "s", "u")
+    assert "tronqué" in str(e.value) and "IA_MAX_TOKENS" in str(e.value)
+
+
+def test_longueur_de_reponse_par_fournisseur_et_reglable(ia, monkeypatch):
+    fournisseurs.generer("deepseek", "m", "s", "u")
+    fournisseurs.generer("ollama", "m", "s", "u")
+    assert [a["corps"]["max_tokens"] for a in ia.appels] == [32768, 8192]
+    monkeypatch.setattr(parametres(), "ia_max_tokens", 50000)
+    fournisseurs.generer("deepseek", "m", "s", "u")
+    assert ia.appels[-1]["corps"]["max_tokens"] == 50000

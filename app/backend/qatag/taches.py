@@ -20,6 +20,7 @@ from .config import parametres
 from .db import SessionLocale
 from .ia import agents, fournisseurs
 from .models import (CasTest, ConfigIA, CritereAcceptation, Defaut, Mission, QuestionMetier,
+                     RegleMetier,
                      TacheIA, Trace, VersionExigence, maintenant)
 
 # Statut de mission pendant la tâche -> statut si la tâche échoue
@@ -72,6 +73,30 @@ def executer(tache_id: int) -> None:
         db.commit()
 
 
+def _generer_au_format(config: ConfigIA, systeme: str, consigne: str, controler):
+    """Appelle l'IA puis contrôle le format ; une seule nouvelle tentative si le
+    format est rejeté, en renvoyant à l'IA les erreurs du script.
+
+    `controler(sortie)` renvoie (resultat, erreurs) ; erreurs vide = conforme.
+    En cas d'échec, l'erreur cite le début de la réponse pour le diagnostic.
+    """
+    sortie = fournisseurs.generer(config.fournisseur, config.modele, systeme, consigne)
+    resultat, erreurs = controler(sortie)
+    if not erreurs:
+        return sortie, resultat, 1
+    relance = (consigne + "\n\n---\nTa réponse précédente a été REJETÉE par le script de "
+               "contrôle pour ces raisons :\n- " + "\n- ".join(erreurs) +
+               "\nRecommence en respectant EXACTEMENT le format du contrat, sans rien "
+               "avant ni après.")
+    sortie = fournisseurs.generer(config.fournisseur, config.modele, systeme, relance)
+    resultat, erreurs = controler(sortie)
+    if erreurs:
+        debut = " ".join(sortie.split())[:300]
+        raise ValueError("%s (après 2 tentatives). Début de la réponse de l'IA : « %s »"
+                         % ("; ".join(erreurs), debut))
+    return sortie, resultat, 2
+
+
 def _config(db: Session, organisation_id: int) -> ConfigIA:
     config = db.get(ConfigIA, organisation_id)
     if config is None:
@@ -85,25 +110,32 @@ def _analyser(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    rapport = fournisseurs.generer(config.fournisseur, config.modele,
-                                   agents.prompt_skill("qa-revue-sfd"),
-                                   agents.consigne_revue(version.texte))
-    controle = scripts_qa.analyser_rapport_revue(rapport, version.texte)
-    if controle["code"] == 2:
-        raise ValueError("Rapport de revue mal formé : " + "; ".join(controle["erreurs"]))
+    def controler(sortie):
+        c = scripts_qa.analyser_rapport_revue(sortie, version.texte)
+        return c, (["rapport de revue mal formé : " + e for e in c["erreurs"]]
+                   if c["code"] == 2 else [])
+    rapport, controle, tentatives = _generer_au_format(
+        config, agents.prompt_skill("qa-revue-sfd"), agents.consigne_revue(version.texte),
+        controler)
+    if tentatives > 1:
+        controle["corrections"].append("format corrigé par l'IA à la 2e tentative")
 
     version.fournisseur_ia = config.fournisseur          # RA-38
     version.modele_ia = config.modele
     version.rapport_revue = rapport
     version.code_controle_revue = controle["code"]
-    version.controle_revue = "\n".join(controle["erreurs"]) or "Citations toutes vérifiées"
+    version.controle_revue = "\n".join(
+        controle["corrections"] + controle["erreurs"] +
+        ["Doublon signalé : %s" % x for x in controle.get("doublons", [])]) \
+        or "Citations toutes vérifiées"
     version.score_clarte = regles.score_clarte([d["gravite"] for d in controle["defauts"]])
 
     n = 0
     for d in controle["defauts"]:
         defaut = Defaut(version_id=version.id, code=d["code"], categorie=d["categorie"],
                         gravite=d["gravite"], section=d["section"], citation=d["citation"],
-                        citation_verifiee=d["citation_verifiee"])
+                        citation_verifiee=d["citation_verifiee"],
+                        constat=d.get("constat"), justification=d.get("justification"))
         db.add(defaut)
         db.flush()
         if d["question"]:
@@ -111,12 +143,19 @@ def _analyser(db: Session, tache: TacheIA) -> None:
             db.add(QuestionMetier(version_id=version.id, defaut_id=defaut.id, code="Q-%d" % n,
                                   question=d["question"],
                                   bloquante=d["gravite"] == "Bloquante"))
+    for qc in controle.get("complementaires", []):       # QA-REV-02 §7 : jamais bloquantes
+        n += 1
+        db.add(QuestionMetier(version_id=version.id, code="Q-%d" % n, question=qc["question"],
+                              nature="COMPLEMENTAIRE", sujet=qc["sujet"],
+                              pourquoi=qc["pourquoi"], bloquante=False))
 
     regles.verifier_transition(mission.statut, "CLARIFICATION")
     mission.statut = "CLARIFICATION"
     journal.ajouter(db, mission.organisation_id, "analyse_terminee", mission_id=mission.id,
                     agent="AG-01", details={
                         "version": version.numero, "defauts": len(controle["defauts"]),
+                        "questions_complementaires": len(controle.get("complementaires", [])),
+                        "doublons": controle.get("doublons", []),
                         "score_clarte": version.score_clarte,
                         "controle": controle["code"],
                         "ia": "%s/%s" % (config.fournisseur, config.modele)})
@@ -127,34 +166,57 @@ def _reecrire(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    questions = [{"code": q.code, "question": q.question, "reponse": q.reponse}
-                 for q in version.questions]
+    questions = [{"code": q.code, "question": q.question, "reponse": q.reponse,
+                  "decision": q.decision} for q in version.questions]
     defauts = [{"code": d.code, "categorie": d.categorie, "gravite": d.gravite,
-                "citation": d.citation} for d in version.defauts]
-    rapport = fournisseurs.generer(config.fournisseur, config.modele,
-                                   agents.prompt_skill("qa-reecriture"),
-                                   agents.consigne_reecriture(version.texte, defauts, questions))
+                "citation": d.citation, "constat": d.constat}
+               for d in version.defauts if d.validation != "ECARTE"]     # RA-50
     repondues = [q["code"] for q in questions if (q["reponse"] or "").strip()]
-    controle = scripts_qa.verifier_reecriture(version.texte, rapport, repondues)
-    if controle["code"] == 2:
-        raise ValueError("Réécriture mal formée : " + "; ".join(controle["erreurs"]))
+
+    def controler(sortie):
+        c = scripts_qa.verifier_reecriture(version.texte, sortie, repondues)
+        return c, (["réécriture mal formée : " + e for e in c["erreurs"]]
+                   if c["code"] == 2 else [])
+    rapport, controle, _ = _generer_au_format(
+        config, agents.prompt_skill("qa-reecriture"),
+        agents.consigne_reecriture(version.texte, defauts, questions), controler)
 
     db.execute(delete(CritereAcceptation).where(CritereAcceptation.version_id == version.id))
+    db.execute(delete(RegleMetier).where(RegleMetier.version_id == version.id))
+    for r in controle["regles"]:                                       # RA-47
+        db.add(RegleMetier(version_id=version.id, code=r["code"], texte=r["texte"],
+                           sources=r["sources"], sources_rejetees=r["sources_rejetees"],
+                           statut=r["statut"]))
     for c in controle["criteres"]:
         db.add(CritereAcceptation(version_id=version.id, code=c["code"], texte=c["texte"],
                                   sources=c["sources"], sources_rejetees=c["sources_rejetees"],
-                                  statut=c["statut"]))
+                                  regles=c["regles"], statut=c["statut"]))
     version.texte_reecrit = controle["texte"]
-    hypotheses = [c["code"] for c in controle["criteres"] if c["statut"] == "HYPOTHESE"]
-    version.controle_reecriture = (
-        "Hypothèses à trancher : %s" % ", ".join(hypotheses) if hypotheses
-        else "Tous les critères sont sourcés")
+    version.points_ouverts = controle["points"]                        # RA-43
+    db.flush()
+    db.refresh(version)
+    from . import missions          # import local : missions importe ce module
+    missions.assurer_phrases(db, version)                              # RA-48
+    hypotheses = [e["code"] for e in controle["regles"] + controle["criteres"]
+                  if e["statut"] == "HYPOTHESE"]
+    non_reprises = [ph["numero"] for ph in missions.couverture(version)
+                    if ph["statut"] == "NON_COUVERTE"]
+    constats = []
+    if hypotheses:
+        constats.append("Hypothèses à trancher : %s" % ", ".join(hypotheses))
+    if non_reprises:
+        constats.append("Phrases du texte d'origine non reprises : %s"
+                        % ", ".join(str(n) for n in non_reprises))
+    version.controle_reecriture = " · ".join(constats) or \
+        "Règles et critères sourcés ; tout le texte d'origine est repris"
 
     regles.verifier_transition(mission.statut, "ATTENTE_PV1")
     mission.statut = "ATTENTE_PV1"
     journal.ajouter(db, mission.organisation_id, "reecriture_terminee", mission_id=mission.id,
-                    details={"version": version.numero, "criteres": len(controle["criteres"]),
-                             "hypotheses": hypotheses,
+                    details={"version": version.numero, "regles": len(controle["regles"]),
+                             "criteres": len(controle["criteres"]),
+                             "hypotheses": hypotheses, "phrases_non_reprises": non_reprises,
+                             "points_ouverts": len(controle["points"]),
                              "ia": "%s/%s" % (config.fournisseur, config.modele)})
 
 
@@ -163,22 +225,30 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
     version = db.get(VersionExigence, tache.version_id)
     mission = db.get(Mission, tache.mission_id)
     config = _config(db, mission.organisation_id)
-    criteres = [{"code": c.code, "texte": c.texte} for c in version.criteres]
-    sortie = fournisseurs.generer(config.fournisseur, config.modele,
-                                  agents.prompt_skill("qa-conception"),
-                                  agents.consigne_conception(version.texte_reecrit or version.texte,
-                                                             criteres, version.texte))
-    csv_texte, justifications = scripts_qa.separer_conception(sortie)
-    if not csv_texte.strip():
-        raise ValueError("La conception ne contient pas de CSV exploitable")
-    csv_texte = scripts_qa.normaliser_csv(csv_texte)
+    criteres = [{"code": c.code, "texte": c.texte, "regles": c.regles} for c in version.criteres]
+    regles_metier = [{"code": r.code, "texte": r.texte} for r in version.regles]
     reference = "\n\n".join([version.texte, version.texte_reecrit or ""] +
+                            ["%s : %s" % (r["code"], r["texte"]) for r in regles_metier] +
                             ["%s : %s" % (c["code"], c["texte"]) for c in criteres])
-    controle = scripts_qa.controler_cas(reference, csv_texte)
-    if controle["code"] in (2, 3):
-        raise ValueError("Cas de test mal formés :\n" + controle["message"][:1500])
 
-    references_connues = ({c["code"] for c in criteres} |
+    def controler(sortie):
+        csv_texte, justifs = scripts_qa.separer_conception(sortie)
+        if not csv_texte.strip():
+            return None, ["aucun CSV exploitable (l'en-tête ID;Titre;… est introuvable)"]
+        c = scripts_qa.controler_cas(reference, scripts_qa.normaliser_csv(csv_texte))
+        c["justifications"] = justifs
+        if c["code"] in (2, 3):
+            lignes = [l for l in c["message"].splitlines() if l.startswith("[ERREUR]")]
+            return c, ["cas de test mal formés : " + l for l in lignes[:10]] or [c["message"][:300]]
+        return c, []
+    _, controle, _ = _generer_au_format(
+        config, agents.prompt_skill("qa-conception"),
+        agents.consigne_conception(version.texte_reecrit or version.texte, criteres, version.texte,
+                                   regles_metier),
+        controler)
+    justifications = controle["justifications"]
+
+    references_connues = ({c["code"] for c in criteres} | {r["code"] for r in regles_metier} |
                           set(scripts_qa.references(version.texte)))
     anciens = select(CasTest.id).where(CasTest.version_id == version.id)
     db.execute(delete(Trace).where(Trace.cas_id.in_(anciens)))

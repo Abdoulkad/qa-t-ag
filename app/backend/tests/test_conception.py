@@ -53,7 +53,7 @@ def test_tracabilite_et_couverture(client, admin, ia):
     assert matrice["CA-01"] == ["CT-001", "CT-002"]
     assert matrice["CA-02"] == ["CT-003", "CT-004"]
     assert matrice["REQ-001"] == []          # REQ de l'origine non citée par un cas
-    assert t["couverture"] == 67
+    assert t["couverture"] == 80          # CA-01, CA-02, RG-01, RG-02 couverts ; REQ-001 non
     assert t["par_technique"] == {"valeurs limites": 3, "partitions d'équivalence": 1}
 
 
@@ -62,7 +62,7 @@ def test_pv2_bloque_puis_correction_humaine(client, admin, ia):
     r = client.post("/api/missions/%d/portes/PV-2" % mid, json={"decision": "APPROUVE"},
                     headers=admin)
     assert r.status_code == 409 and r.json()["regle"] == "RA-26"
-    assert r.json()["elements"] == ["CT-003 : INCOMPLET", "CT-004 : A_CLARIFIER"]
+    assert r.json()["elements"] == ["CT-003 : cas incomplet", "CT-004 : cas à clarifier"]
 
     cas = _cas(client, admin, mid)
     url = "/api/missions/%d/cas/%d" % (mid, cas["CT-003"]["id"])
@@ -127,6 +127,22 @@ def test_suivi_des_cas(client, admin, ia):
     assert r["par_statut"] == {"PRET": 2, "INCOMPLET": 1, "A_CLARIFIER": 1}
     assert client.get("/api/cas?q=expiré", headers=admin).json()["total"] == 1
     assert client.get("/api/cas?statut=PRET", headers=admin).json()["total"] == 2
+    # recherche élargie à la mission et compteurs d'exécution
+    assert client.get("/api/cas?q=US-042", headers=admin).json()["total"] == 4
+    assert (r["executes"], r["non_executes"]) == (0, 4)
+    from qatag.db import SessionLocale
+    from qatag.models import CasTest, Execution
+    with SessionLocale() as db:
+        ct1 = db.query(CasTest).filter_by(code="CT-001").one()
+        db.add(Execution(cas_id=ct1.id, statut="PASS", commentaire="lien refusé comme prévu",
+                         testeur_id=1))
+        db.commit()
+    r = client.get("/api/cas", headers=admin).json()
+    assert (r["executes"], r["non_executes"]) == (1, 3)
+    assert next(c for c in r["cas"] if c["code"] == "CT-001")["execution"] == "PASS"
+    assert client.get("/api/cas?statut=EXECUTE", headers=admin).json()["total"] == 1
+    assert client.get("/api/cas?statut=NON_EXECUTE", headers=admin).json()["total"] == 3
+    assert client.get("/api/cas?q=refusé comme", headers=admin).json()["total"] == 1
 
 
 def test_regle_statut_cas_unitaire():

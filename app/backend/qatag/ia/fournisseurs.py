@@ -10,6 +10,8 @@ Points d'accès vérifiés dans la documentation des éditeurs (oct. 2026) :
 Les clés viennent uniquement du fichier .env ; elles ne sont jamais
 renvoyées par l'API ni écrites dans les journaux.
 """
+import json
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -29,6 +31,10 @@ class Fournisseur:
     protocole: str          # "openai" ou "anthropic"
     attribut_cle: str | None  # nom du paramètre .env portant la clé
     modele_par_defaut: str
+    # Longueur de réponse demandée, en tokens. Elle inclut le raisonnement des
+    # modèles « thinking » (activé par défaut chez DeepSeek), d'où une marge
+    # large. Reste sous la sortie maximale documentée des modèles courants.
+    sortie_max: int = 8192
 
     def url(self) -> str:
         if self.code == "ollama":
@@ -54,12 +60,12 @@ URLS = {
 # Les modèles par défaut ne sont qu'une suggestion : l'Administrateur saisit
 # le modèle exact dans la configuration, selon son abonnement.
 FOURNISSEURS = {f.code: f for f in (
-    Fournisseur("deepseek", "DeepSeek", "openai", "deepseek_api_key", "deepseek-flash"),
-    Fournisseur("openai", "OpenAI", "openai", "openai_api_key", "gpt-4o-mini"),
-    Fournisseur("mistral", "Mistral", "openai", "mistral_api_key", "mistral-large-latest"),
+    Fournisseur("deepseek", "DeepSeek", "openai", "deepseek_api_key", "deepseek-flash", 32768),
+    Fournisseur("openai", "OpenAI", "openai", "openai_api_key", "gpt-4o-mini", 16384),
+    Fournisseur("mistral", "Mistral", "openai", "mistral_api_key", "mistral-large-latest", 16384),
     Fournisseur("ollama", "Ollama (local)", "openai", None, "llama3.1"),
     Fournisseur("anthropic", "Anthropic (Claude)", "anthropic", "anthropic_api_key",
-                "claude-sonnet-5-5"),
+                "claude-sonnet-5-5", 32000),
 )}
 
 
@@ -67,41 +73,136 @@ class ErreurIA(Exception):
     pass
 
 
+# Coupures réseau passagères : on retente. Une erreur d'authentification ou de
+# requête (4xx hors 408/429) n'est jamais retentée, elle ne changerait pas.
+ERREURS_TRANSITOIRES = (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ConnectTimeout,
+                        httpx.ReadError, httpx.ReadTimeout, httpx.WriteError, httpx.PoolTimeout)
+CODES_TRANSITOIRES = {408, 429, 500, 502, 503, 504, 529}
+PAUSES_SECONDES = (5, 20)     # avant la 2e puis la 3e tentative
+attendre = time.sleep         # remplacé dans les tests
+
+LIBELLES_ERREUR = {
+    "RemoteProtocolError": "connexion coupée par le serveur avant la fin de la réponse",
+    "ConnectError": "connexion impossible (réseau ou adresse)",
+    "ConnectTimeout": "délai de connexion dépassé",
+    "ReadTimeout": "aucune donnée reçue pendant %d s" % DELAI_SECONDES,
+    "ReadError": "lecture de la réponse interrompue",
+}
+
+
+class _Transitoire(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+
 def _client() -> httpx.Client:
     return httpx.Client(timeout=DELAI_SECONDES, transport=transport_http)
 
 
+def _requete(f: Fournisseur, modele: str, systeme: str, utilisateur: str,
+             max_tokens: int) -> tuple[dict, dict]:
+    if f.protocole == "anthropic":
+        return ({"x-api-key": f.cle(), "anthropic-version": "2023-06-01",
+                 "content-type": "application/json"},
+                {"model": modele, "max_tokens": max_tokens, "system": systeme, "stream": True,
+                 "messages": [{"role": "user", "content": utilisateur}]})
+    return ({"Authorization": "Bearer " + (f.cle() or "ollama")},
+            {"model": modele, "max_tokens": max_tokens, "stream": True,
+             "messages": [{"role": "system", "content": systeme},
+                          {"role": "user", "content": utilisateur}]})
+
+
+def _lire_flux(f: Fournisseur, lignes) -> tuple[str, str | None]:
+    """Lit une réponse en continu (SSE). Les lignes vides et les commentaires
+    « : keep-alive » envoyés pendant l'attente sont ignorés."""
+    morceaux, fin = [], None
+    for ligne in lignes:
+        ligne = ligne.strip()
+        if not ligne.startswith("data:"):
+            continue                       # vide, commentaire ou « event: »
+        donnee = ligne[5:].strip()
+        if donnee == "[DONE]":
+            break
+        try:
+            obj = json.loads(donnee)
+        except ValueError:
+            continue
+        if obj.get("error") or obj.get("type") == "error":
+            erreur = obj.get("error") or {}
+            raise ErreurIA("%s a signalé une erreur : %s" % (
+                f.libelle, str(erreur.get("message", erreur))[:300]))
+        if f.protocole == "anthropic":
+            if obj.get("type") == "content_block_delta":
+                morceaux.append((obj.get("delta") or {}).get("text", ""))
+            elif obj.get("type") == "message_delta":
+                fin = (obj.get("delta") or {}).get("stop_reason") or fin
+        else:
+            for choix in obj.get("choices") or []:
+                morceaux.append(((choix.get("delta") or {}).get("content")) or "")
+                fin = choix.get("finish_reason") or fin
+    return "".join(morceaux), fin
+
+
+def _lire_json(f: Fournisseur, donnees: dict) -> tuple[str, str | None]:
+    """Repli : certains serveurs compatibles ignorent « stream » et renvoient du JSON."""
+    try:
+        if f.protocole == "anthropic":
+            return ("".join(b.get("text", "") for b in donnees["content"]
+                            if b.get("type") == "text"), donnees.get("stop_reason"))
+        choix = donnees["choices"][0]
+        return choix["message"]["content"], choix.get("finish_reason")
+    except (KeyError, IndexError, TypeError) as e:
+        raise ErreurIA("Réponse inattendue de %s" % f.libelle) from e
+
+
+def _une_tentative(f: Fournisseur, entetes: dict, corps: dict) -> str:
+    try:
+        with _client() as c, c.stream("POST", f.url(), headers=entetes, json=corps) as r:
+            if r.status_code != 200:
+                r.read()
+                message = "%s a répondu HTTP %s : %s" % (f.libelle, r.status_code, r.text[:300])
+                if r.status_code in CODES_TRANSITOIRES:
+                    raise _Transitoire(message)
+                # le corps d'erreur des éditeurs ne contient pas la clé ; on le tronque
+                raise ErreurIA(message)
+            if "text/event-stream" in r.headers.get("content-type", ""):
+                texte, fin = _lire_flux(f, r.iter_lines())
+            else:
+                r.read()
+                try:
+                    texte, fin = _lire_json(f, json.loads(r.text))
+                except ValueError as e:
+                    raise ErreurIA("Réponse illisible de %s" % f.libelle) from e
+    except ERREURS_TRANSITOIRES as e:
+        nom = type(e).__name__
+        raise _Transitoire("%s injoignable : %s (%s)" % (
+            f.libelle, LIBELLES_ERREUR.get(nom, nom), nom)) from e
+    except httpx.HTTPError as e:
+        raise ErreurIA("%s injoignable : %s" % (f.libelle, type(e).__name__)) from e
+    if fin in ("length", "max_tokens"):
+        raise ErreurIA("%s a tronqué sa réponse : limite de %d tokens atteinte. "
+                       "Augmentez IA_MAX_TOKENS dans le fichier .env (sans dépasser la "
+                       "limite du modèle) puis redémarrez le serveur"
+                       % (f.libelle, corps["max_tokens"]))
+    return texte
+
+
 def generer(code_fournisseur: str, modele: str, systeme: str, utilisateur: str,
-            max_tokens: int = 8192) -> str:
+            max_tokens: int | None = None) -> str:
     f = FOURNISSEURS.get(code_fournisseur)
     if f is None:
         raise ErreurIA("Fournisseur inconnu : %s" % code_fournisseur)
+    max_tokens = max_tokens or parametres().ia_max_tokens or f.sortie_max
     if not f.disponible():
         raise ErreurIA("Clé d'API absente pour %s (fichier .env)" % f.libelle)
-    try:
-        with _client() as c:
-            if f.protocole == "anthropic":
-                r = c.post(f.url(), headers={
-                    "x-api-key": f.cle(), "anthropic-version": "2023-06-01",
-                    "content-type": "application/json"},
-                    json={"model": modele, "max_tokens": max_tokens, "system": systeme,
-                          "messages": [{"role": "user", "content": utilisateur}]})
-            else:
-                entetes = {"Authorization": "Bearer " + (f.cle() or "ollama")}
-                r = c.post(f.url(), headers=entetes, json={
-                    "model": modele, "max_tokens": max_tokens,
-                    "messages": [{"role": "system", "content": systeme},
-                                 {"role": "user", "content": utilisateur}]})
-    except httpx.HTTPError as e:
-        raise ErreurIA("%s injoignable : %s" % (f.libelle, type(e).__name__)) from e
-    if r.status_code != 200:
-        # le corps d'erreur des éditeurs ne contient pas la clé ; on le tronque
-        raise ErreurIA("%s a répondu HTTP %s : %s" % (f.libelle, r.status_code, r.text[:300]))
-    donnees = r.json()
-    try:
-        if f.protocole == "anthropic":
-            return "".join(b.get("text", "") for b in donnees["content"]
-                           if b.get("type") == "text")
-        return donnees["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as e:
-        raise ErreurIA("Réponse inattendue de %s" % f.libelle) from e
+    entetes, corps = _requete(f, modele, systeme, utilisateur, max_tokens)
+    tentatives = len(PAUSES_SECONDES) + 1
+    for n in range(tentatives):
+        try:
+            return _une_tentative(f, entetes, corps)
+        except _Transitoire as e:
+            if n == tentatives - 1:
+                raise ErreurIA("%s — échec après %d tentatives" % (e.message, tentatives)) from e
+            attendre(PAUSES_SECONDES[n])
+    raise AssertionError("inatteignable")

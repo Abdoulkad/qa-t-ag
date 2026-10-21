@@ -93,3 +93,30 @@ class ModificationCas(BaseModel):
     etapes: str | None = None
     resultat_attendu: str | None = None
     confirmer: bool = False
+
+
+class DecisionQuestions(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    decision: str | None = None          # HORS_PERIMETRE, REPORTEE, ou null pour annuler
+    motif: str = ""
+
+
+class EcartCriteres(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    motif: str = Field(min_length=1)
+
+
+class JustificationPhrases(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    motif: str | None = None             # null pour annuler la justification
+
+
+class ValidationDefauts(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    action: str                          # CONFIRMER, ECARTER ou ANNULER
+    motif: str = ""
+
+
+class Requalification(BaseModel):
+    gravite: str
+    motif: str = Field(min_length=1)

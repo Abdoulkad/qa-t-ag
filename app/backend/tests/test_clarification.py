@@ -37,7 +37,7 @@ def test_reecriture_refusee_si_question_bloquante_sans_reponse(client, admin, ia
     mid = _mission(client, admin)
     r = client.post("/api/missions/%d/reecriture" % mid, headers=admin)
     assert r.status_code == 409 and r.json()["regle"] == "RA-21"
-    assert r.json()["elements"] == ["Q-1 : question bloquante sans réponse"]
+    assert r.json()["elements"] == ["Q-1 : question bloquante non traitée"]
 
 
 def test_reecriture_sources_verifiees_par_script(client, admin, ia):
@@ -63,7 +63,7 @@ def test_pv1_bloque_puis_debloque_en_traitant_les_hypotheses(client, admin, ia):
     _repondre(client, admin, mid, "Q-1", "30 minutes")
     client.post("/api/missions/%d/reecriture" % mid, headers=admin)
     m = _detail(client, admin, mid)
-    assert m["bloquants_porte"] == ["CA-02 : critère sans source (hypothèse)",
+    assert m["bloquants_porte"] == ["CA-02 : source non valable (Q-2)",
                                     "CA-03 : critère sans source (hypothèse)"]
     # L'humain répond à Q-2 puis relance la réécriture : CA-02 devient sourcé
     assert _repondre(client, admin, mid, "Q-2", "8 caractères minimum").status_code == 200
@@ -120,3 +120,37 @@ def test_analyste_non_participant_ne_peut_pas_repondre(client, admin, ia):
     r = client.post("/api/missions/%d/questions" % mid, json={"question": "q", "reponse": "r"},
                     headers=entetes(client, "t@exemple.ci"))
     assert r.status_code == 404
+
+
+def test_format_rejete_puis_corrige_a_la_seconde_tentative(client, admin, ia):
+    from .conftest import REECRITURE_IA
+    mid = _mission(client, admin)
+    _repondre(client, admin, mid, "Q-1", "30 minutes")
+    ia.reponses["reecriture"] = ["Voici ma proposition libre.", REECRITURE_IA]
+    client.post("/api/missions/%d/reecriture" % mid, headers=admin)
+    assert _detail(client, admin, mid)["statut"] == "ATTENTE_PV1"
+    relance = ia.appels[-1]["corps"]["messages"][1]["content"]
+    assert "REJETÉE par le script de contrôle" in relance
+
+
+def test_echec_cite_le_debut_de_la_reponse(client, admin, ia):
+    mid = _mission(client, admin)
+    _repondre(client, admin, mid, "Q-1", "30 minutes")
+    ia.reponses["reecriture"] = "Voici ma proposition libre."
+    r = client.post("/api/missions/%d/reecriture" % mid, headers=admin)
+    t = client.get("/api/taches/%d" % r.json()["tache_id"], headers=admin).json()
+    assert "après 2 tentatives" in t["erreur"] and "Voici ma proposition libre" in t["erreur"]
+
+
+def test_titres_en_forme_libre_acceptes_sources_toujours_verifiees(client, admin, ia):
+    mid = _mission(client, admin)
+    _repondre(client, admin, mid, "Q-1", "30 minutes")
+    ia.reponses["reecriture"] = (ia.reponses["reecriture"]
+                                 .replace("## User Story réécrite", "### 1. **Exigence réécrite :**")
+                                 .replace("## Règles métier", "## 2. Règles de gestion")
+                                 .replace("## Critères d'acceptation", "## Critères d’acceptation"))
+    client.post("/api/missions/%d/reecriture" % mid, headers=admin)
+    m = _detail(client, admin, mid)
+    assert m["statut"] == "ATTENTE_PV1"
+    statuts = {c["code"]: c["statut"] for c in m["versions"][0]["criteres"]}
+    assert statuts == {"CA-01": "SOURCE", "CA-02": "HYPOTHESE", "CA-03": "HYPOTHESE"}

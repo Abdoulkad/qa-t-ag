@@ -1,5 +1,13 @@
 # QA-T-AG — Agent QA/BA autonome
 
+> **Application web v1.0.0 (conception)** — FastAPI + React + PostgreSQL.
+> Analyser → Clarifier → Réécrire → PV-1 → Concevoir → PV-2, avec agents IA
+> contrôlés par script et validation humaine à chaque Human Gate.
+> Installation : [`app/backend/README.md`](app/backend/README.md) ·
+> Notes de version : [`docs/NOTES-VERSION-1.0.md`](docs/NOTES-VERSION-1.0.md) ·
+> Règles : [`docs/specifications.md`](docs/specifications.md).
+> La suite de ce document décrit la vision complète à 13 agents (agent Hermes).
+
 QA-T-AG transforme une exigence (SFD, User Story) en cas de test
 fonctionnels et non fonctionnels (Gherkin, ISTQB), les exécute en
 Sandbox isolée, et produit un verdict **prouvé** par des sorties

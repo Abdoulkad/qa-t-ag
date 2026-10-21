@@ -30,6 +30,8 @@ class Parametres(BaseSettings):
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434/v1"
+    # Longueur maximale d'une réponse IA, en tokens. 0 = valeur du fournisseur.
+    ia_max_tokens: int = 0
 
     # Exécution des tâches IA : "fond" (thread) ou "immediat" (tests)
     mode_taches: str = "fond"

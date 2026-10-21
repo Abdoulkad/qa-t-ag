@@ -42,11 +42,27 @@ def test_rapport_mal_forme_met_l_analyse_en_echec(client, admin, ia):
     assert m["statut"] == "ECHEC_ANALYSE"
 
 
-def test_sans_ia_configuree_l_analyse_echoue_proprement(client, ia):
+def test_mission_refusee_tant_qu_aucune_ia_n_est_configuree(client, ia):
     inscrire(client, "a@exemple.ci")
     h = entetes(client, "a@exemple.ci")
-    m = _creer(client, h)
+    r = client.post("/api/missions", json={"titre": "x", "texte": US_TEST}, headers=h)
+    assert r.status_code == 409 and r.json()["regle"] == "RA-37"
+    assert client.get("/api/missions", headers=h).json() == []
+
+
+def test_section_alerte_omise_par_l_ia_est_toleree_et_tracee(client, admin, ia):
+    ia.reponse = ia.reponse.replace("## Alerte sécurité\nAucune\n\n", "")
+    m = _creer(client, admin)
+    assert m["statut"] == "CLARIFICATION"
+    assert "Alerte sécurité" in m["versions"][0]["controle_revue"]
+
+
+def test_section_de_fond_manquante_reste_une_erreur(client, admin, ia):
+    ia.reponse = ia.reponse.split("## Défauts")[0]
+    m = _creer(client, admin)
     assert m["statut"] == "ECHEC_ANALYSE"
+    assert m["derniere_tache"]["etat"] == "ECHEC"
+    assert "Défauts" in m["derniere_tache"]["erreur"]
 
 
 def test_creation_depuis_un_fichier_docx(client, admin, ia):
