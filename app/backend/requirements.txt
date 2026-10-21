@@ -1,0 +1,17 @@
+# Backend QA-T-AG — versions testées le 19/10/2026 (Python 3.13, PostgreSQL 16)
+fastapi==0.147.0
+uvicorn[standard]==0.53.0
+SQLAlchemy==2.1.5
+psycopg[binary]==3.3.6
+alembic==1.20.0
+pydantic-settings==2.16.0
+email-validator==2.3.0
+bcrypt==5.0.0
+PyJWT==2.14.0
+httpx==0.28.1
+python-docx==1.2.0
+python-multipart==0.0.32
+pypdf==5.9.0
+
+# Tests
+pytest==9.1.1
