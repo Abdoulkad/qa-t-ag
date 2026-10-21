@@ -17,7 +17,7 @@ if _cle == "a-changer-dans-le-fichier-env" or len(_cle) < 32:
     raise RuntimeError("SECRET_KEY absente ou trop courte dans le fichier .env "
                        "(32 caractères minimum). Voir app/backend/.env.example.")
 
-app = FastAPI(title="QA-T-AG", version="2.0.0-lot1",
+app = FastAPI(title="QA-T-AG", version="1.0.0",
               description="Le script calcule · l'agent analyse · l'humain arbitre.")
 
 # Le frontend React de développement tourne sur un autre port
