@@ -2,6 +2,7 @@
 
 Le serveur les applique ; l'interface ne fait que les refléter.
 """
+import re as _re
 from dataclasses import dataclass
 
 # RA-11 — transitions autorisées du statut de mission
@@ -9,8 +10,8 @@ TRANSITIONS = {
     "ANALYSE_EN_COURS": ("CLARIFICATION", "ECHEC_ANALYSE"),
     "ECHEC_ANALYSE": ("ANALYSE_EN_COURS",),
     "CLARIFICATION": ("REECRITURE",),
-    "REECRITURE": ("ATTENTE_PV1",),
-    "ATTENTE_PV1": ("CONCEPTION", "A_CORRIGER"),
+    "REECRITURE": ("ATTENTE_PV1", "CLARIFICATION"),     # échec IA -> retour
+    "ATTENTE_PV1": ("CONCEPTION", "A_CORRIGER", "REECRITURE"),  # relancer
     "CONCEPTION": ("ATTENTE_PV2",),
     "ATTENTE_PV2": ("VALIDEE", "A_CORRIGER"),
     "VALIDEE": ("EN_RECETTE",),
@@ -84,3 +85,61 @@ def statuts_test_autorises(resultat_attendu: str) -> tuple[str, ...]:
     if (resultat_attendu or "").strip():
         return ("PASS", "FAIL", "BLOCKED", "NOT_RUN")
     return ("BLOCKED", "NOT_RUN")
+
+
+# --- RA-23, RA-24 : statut d'un cas de test, calculé (jamais choisi par l'IA) ---
+
+_RE_GABARIT = _re.compile(
+    r"\{[^}]+\}|\b(TBD|TODO|XXX+|N/?A)\b|à (définir|préciser|compléter)|"
+    r"a (definir|preciser|completer)|non (défini|precise|précisé)", _re.IGNORECASE)
+# Données « génériques » : décrivent une classe, pas une valeur concrète
+_GENERIQUES = {
+    "valide", "valides", "invalide", "invalides", "données valides", "données invalides",
+    "donnees valides", "donnees invalides", "identifiants valides", "identifiants invalides",
+    "valeur valide", "valeur invalide", "-", "—", "aucune", "néant", "neant",
+}
+# Description d'une classe de valeurs (« mot de passe valide », « un e-mail
+# existant ») sans aucune valeur précise : ni chiffre, ni guillemet, ni @, ni =.
+_RE_DESCRIPTION_GENERIQUE = _re.compile(
+    r"\b(valides?|invalides?|correcte?s?|incorrecte?s?|existante?s?|inexistante?s?|"
+    r"quelconques?|aléatoires?|aleatoires?|conformes?|non conformes?)\b", _re.IGNORECASE)
+_RE_VALEUR_PRECISE = _re.compile(r"[0-9@=«»\"':/]")
+SANS_OBJET = "sans objet"
+
+
+def donnees_concretes(donnees: str) -> bool:
+    d = (donnees or "").strip()
+    if not d:
+        return False
+    if d.lower() == SANS_OBJET:
+        return True
+    if d.lower().strip(" .") in _GENERIQUES or _RE_GABARIT.search(d):
+        return False
+    if _RE_DESCRIPTION_GENERIQUE.search(d) and not _RE_VALEUR_PRECISE.search(d):
+        return False
+    return True
+
+
+def statut_cas(preconditions: str, donnees_test: str, resultat_attendu: str,
+               statut_ia: str, confirme_par_humain: bool = False) -> tuple[str, str]:
+    """Retourne (statut, motif). PRET exige des préconditions, des données
+    concrètes et un résultat attendu ; « Sans objet » est accepté pour des
+    données quand le cas n'en demande pas."""
+    manques = []
+    if not (preconditions or "").strip():
+        manques.append("préconditions absentes")
+    donnees = (donnees_test or "").strip()
+    if not donnees:
+        manques.append("données de test absentes")
+    elif not donnees_concretes(donnees):
+        manques.append("données de test non concrètes (%s)" % donnees[:60])
+    resultat = (resultat_attendu or "").strip()
+    if not resultat:
+        manques.append("résultat attendu absent")
+    elif _RE_GABARIT.search(resultat):
+        manques.append("résultat attendu incomplet")
+    if manques:
+        return "INCOMPLET", "; ".join(manques)
+    if statut_ia == "A_CLARIFIER" and not confirme_par_humain:
+        return "A_CLARIFIER", "signalé à clarifier par l'agent de conception"
+    return "PRET", ""

@@ -59,22 +59,71 @@ A_CLARIFIER
 """
 
 
+REECRITURE_IA = """## Exigence réécrite
+En tant qu'utilisateur ayant oublié son mot de passe, je reçois un lien de
+réinitialisation valable 30 minutes et je définis un nouveau mot de passe.
+
+## Critères d'acceptation
+### CA-01
+- **Critère** : Étant donné un lien émis il y a 31 minutes, quand je l'ouvre, alors il est refusé.
+- **Sources** : « durée limitée » ; Q-1
+### CA-02
+- **Critère** : Étant donné un nouveau mot de passe de 7 caractères, quand je valide, alors il est refusé.
+- **Sources** : Q-2
+### CA-03
+- **Critère** : Étant donné une réinitialisation réussie, alors un SMS de confirmation est envoyé.
+- **Sources** :
+"""
+
+CONCEPTION_IA = """ID;Titre;Objectif;Exigence;Technique;Priorité;Type;Préconditions;Données de test;Étapes;Résultat attendu;Statut livrable
+CT-001;Lien expiré refusé;Vérifier l'expiration;CA-01;valeurs limites;Haute;Fonctionnel;Lien émis;Lien émis à 08:00 / ouverture à 08:31;Ouvrir le lien;Message « Lien expiré »;OK
+CT-002;Lien valide accepté;Vérifier la validité;CA-01;Valeurs Limites;Haute;Fonctionnel;Lien émis;Lien émis à 08:00 / ouverture à 08:29;Ouvrir le lien;Formulaire de saisie affiché;OK
+CT-003;Mot de passe trop court;Vérifier la longueur;CA-02;valeurs limites;Critique;Fonctionnel;Formulaire ouvert;mot de passe valide;Saisir le mot de passe;Message « 8 caractères minimum »;OK
+CT-004;Cas douteux;Vérifier X;CA-02;partitions d'équivalence;Moyenne;Fonctionnel;Formulaire ouvert;Abc12345;Saisir le mot de passe;Mot de passe accepté;À_CLARIFIER
+
+## Justifications
+CT-001 : valeurs limites — 31 min, juste au-delà de la borne de 30 min.
+CT-002 : valeurs limites — 29 min, juste en deçà de la borne.
+CT-003 : valeurs limites — 7 caractères, sous la borne de 8.
+"""
+
+
 class IAFactice:
-    """Remplace le réseau : enregistre les appels, renvoie une réponse préparée."""
+    """Remplace le réseau : enregistre les appels, renvoie une réponse préparée
+    selon l'agent appelé (revue, réécriture ou conception)."""
 
     def __init__(self):
         self.appels = []
-        self.reponse = RAPPORT_IA
+        self.reponses = {"revue": RAPPORT_IA, "reecriture": REECRITURE_IA,
+                         "conception": CONCEPTION_IA}
         self.statut_http = 200
 
+    @property
+    def reponse(self):
+        return self.reponses["revue"]
+
+    @reponse.setter
+    def reponse(self, valeur):
+        self.reponses["revue"] = valeur
+
+    def _agent(self, corps):
+        systeme = corps.get("system") or corps["messages"][0]["content"]
+        if "Réécriture d'exigence" in systeme:
+            return "reecriture"
+        if "AG-02" in systeme:
+            return "conception"
+        return "revue"
+
     def __call__(self, requete: httpx.Request) -> httpx.Response:
+        corps = json.loads(requete.content)
         self.appels.append({"url": str(requete.url), "entetes": dict(requete.headers),
-                            "corps": json.loads(requete.content)})
+                            "corps": corps})
         if self.statut_http != 200:
             return httpx.Response(self.statut_http, json={"error": "refus"})
+        texte = self.reponses[self._agent(corps)]
         if "anthropic" in str(requete.url):
-            return httpx.Response(200, json={"content": [{"type": "text", "text": self.reponse}]})
-        return httpx.Response(200, json={"choices": [{"message": {"content": self.reponse}}]})
+            return httpx.Response(200, json={"content": [{"type": "text", "text": texte}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": texte}}]})
 
 
 @pytest.fixture(scope="session", autouse=True)

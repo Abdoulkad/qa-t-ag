@@ -22,3 +22,45 @@ def consigne_revue(texte: str) -> str:
             "« - **Question** : » posant la question métier au rédacteur. "
             "4) Termine TOUJOURS par « ## Statut du livrable » suivi d'une "
             "valeur canonique. N'invente aucune règle métier.")
+
+
+def consigne_reecriture(origine: str, defauts: list[dict], questions: list[dict]) -> str:
+    """questions : [{code, question, reponse}] — seules les réponses comptent comme sources."""
+    lignes = ["## Exigence d'origine", origine, "", "## Défauts relevés par la revue (AG-01)"]
+    lignes += ["- %s (%s, %s) : « %s »" % (d["code"], d["categorie"], d["gravite"],
+                                           d["citation"] or "") for d in defauts] or ["- aucun"]
+    lignes += ["", "## Réponses humaines aux questions métier (sources Q-n utilisables)"]
+    repondues = [q for q in questions if (q["reponse"] or "").strip()]
+    lignes += ["- %s — Question : %s\n  Réponse : %s" % (q["code"], q["question"], q["reponse"])
+               for q in repondues] or ["- aucune réponse"]
+    sans = [q for q in questions if not (q["reponse"] or "").strip()]
+    if sans:
+        lignes += ["", "## Questions restées sans réponse (NE SONT PAS des sources)"]
+        lignes += ["- %s — %s" % (q["code"], q["question"]) for q in sans]
+    lignes += ["", "Réécris l'exigence selon le format du contrat, sans rien avant ni après. "
+                   "N'invente aucune règle métier."]
+    return "\n".join(lignes)
+
+
+def consigne_conception(texte_reecrit: str, criteres: list[dict], origine: str) -> str:
+    lignes = ["## Exigence validée (PV-1)", texte_reecrit, "", "## Critères d'acceptation"]
+    lignes += ["- %s : %s" % (c["code"], c["texte"]) for c in criteres]
+    lignes += ["", "## Exigence d'origine (pour les identifiants REQ/BR éventuels)", origine, "",
+               "Conçois les cas de test. Contraintes STRICTES :",
+               "1) Sors d'abord UNIQUEMENT le CSV brut, première ligne exactement : "
+               "ID;Titre;Objectif;Exigence;Technique;Priorité;Type;Préconditions;"
+               "Données de test;Étapes;Résultat attendu;Statut livrable",
+               "2) Colonne Exigence : le ou les codes couverts (CA-xx, et REQ/BR s'il y en a). "
+               "Chaque critère CA doit être couvert par au moins un cas.",
+               "3) Technique : partitions d'équivalence, valeurs limites, table de décision "
+               "ou transitions d'état (en minuscules).",
+               "4) Priorité : Critique, Haute ou Moyenne. Type : Fonctionnel, Interface "
+               "utilisateur ou Sécurité/Habilitation.",
+               "5) Données de test CONCRÈTES (valeurs exactes, jamais « valide » ou "
+               "« {variable} ») ; écris « Sans objet » si le cas n'en demande aucune.",
+               "6) Statut livrable : OK, ou À_CLARIFIER si une information manque.",
+               "7) Jamais de point-virgule à l'intérieur d'un champ. CT numérotés CT-001, CT-002…",
+               "8) APRÈS le CSV, une section « ## Justifications » avec une ligne par cas : "
+               "« CT-001 : <quelle partition, quelle limite ou quelle règle de la table "
+               "ce cas exerce, et pourquoi> »."]
+    return "\n".join(lignes)

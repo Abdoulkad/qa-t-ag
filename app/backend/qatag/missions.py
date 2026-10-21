@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from . import journal, regles, scripts_qa, taches
 from .models import (CasTest, CritereAcceptation, DecisionPorte, Mission, Participant,
-                     Utilisateur, VersionExigence)
+                     QuestionMetier, Trace, Utilisateur, VersionExigence, maintenant)
 from .regles import RegleViolee
 
 
@@ -102,7 +102,13 @@ def bloquants_porte(db: Session, porte: str, v: VersionExigence) -> tuple[str, l
         CasTest.version_id == v.id).order_by(CasTest.code)).all()
     if not cas:
         return "RA-26", ["Aucun cas de test conçu"]
-    return "RA-26", ["%s : %s" % (c, s) for c, s in cas if s in ("A_CLARIFIER", "INCOMPLET")]
+    elements = ["%s : %s" % (c, s) for c, s in cas if s in ("A_CLARIFIER", "INCOMPLET")]
+    # RA-41 : chaque critère d'acceptation est couvert par au moins un cas
+    couverts = set(db.scalars(select(Trace.reference).join(CasTest, CasTest.id == Trace.cas_id)
+                              .where(CasTest.version_id == v.id)).all())
+    elements += ["%s : critère non couvert par un cas" % c.code
+                 for c in v.criteres if c.code not in couverts]
+    return "RA-26", elements
 
 
 def decider(db: Session, decideur: Utilisateur, m: Mission, porte: str, decision: str,
@@ -147,4 +153,150 @@ def decider(db: Session, decideur: Utilisateur, m: Mission, porte: str, decision
                              "auto_validation": hab.auto_validation,               # RA-14
                              "commentaire": commentaire})
     db.commit()
+    if decision == "APPROUVE" and porte == "PV-1":
+        taches.lancer(db, m, v, "CONCEPTION")                # AG-02 dès PV-1 validé
     return d
+
+
+# --- Lot 2 : clarification, réécriture, conception -------------------------
+
+def _version_modifiable(m: Mission, statuts: tuple[str, ...], action: str,
+                        exigence: bool = True) -> VersionExigence:
+    """`exigence=True` : l'action touche l'exigence elle-même (texte, réponses,
+    critères), interdite une fois la version figée par PV-1 (RA-10). Les cas de
+    test, eux, se corrigent après PV-1 et jusqu'à PV-2 : le statut suffit."""
+    if m.statut not in statuts:
+        raise RegleViolee("RA-11", "%s impossible au statut %s" % (action, m.statut))
+    v = version_courante(m)
+    if exigence and v.figee:
+        raise RegleViolee("RA-10", "Cette version est figée")
+    return v
+
+
+def repondre(db: Session, u: Utilisateur, m: Mission, question_id: int,
+             reponse: str) -> QuestionMetier:
+    """RA-18 : la réponse enregistre son auteur et sa date."""
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "Répondre")
+    q = db.get(QuestionMetier, question_id)
+    if q is None or q.version_id != v.id:
+        raise RegleViolee("RA-05", "Question introuvable sur la version courante")
+    reponse = (reponse or "").strip()
+    q.reponse = reponse or None
+    q.repondu_par_id = u.id if reponse else None
+    q.repondu_le = maintenant() if reponse else None
+    journal.ajouter(db, m.organisation_id, "question_repondue", mission_id=m.id, acteur_id=u.id,
+                    details={"question": q.code, "reponse": reponse})
+    db.commit()
+    return q
+
+
+def ajouter_precision(db: Session, u: Utilisateur, m: Mission, question: str,
+                      reponse: str) -> QuestionMetier:
+    """Précision apportée par un humain (question + réponse), utilisable comme source Q-n."""
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "Ajouter une précision")
+    if not question.strip() or not reponse.strip():
+        raise RegleViolee("RA-18", "Une précision exige une question et sa réponse")
+    q = QuestionMetier(version_id=v.id, code="Q-%d" % (len(v.questions) + 1),
+                       question=question.strip(), reponse=reponse.strip(), bloquante=False,
+                       ajoutee_par_id=u.id, repondu_par_id=u.id, repondu_le=maintenant())
+    db.add(q)
+    db.flush()
+    journal.ajouter(db, m.organisation_id, "precision_ajoutee", mission_id=m.id, acteur_id=u.id,
+                    details={"question": q.code, "texte": q.question, "reponse": q.reponse})
+    db.commit()
+    return q
+
+
+def lancer_reecriture(db: Session, u: Utilisateur, m: Mission):
+    v = _version_modifiable(m, ("CLARIFICATION", "ATTENTE_PV1"), "La réécriture")
+    if taches.en_cours(db, m.id):
+        raise RegleViolee("RA-39", "Une tâche IA est déjà en cours sur cette mission")
+    sans_reponse = [q.code for q in v.questions if q.bloquante and not (q.reponse or "").strip()]
+    if sans_reponse:                                                            # RA-21
+        raise RegleViolee("RA-21", "Répondez d'abord aux questions bloquantes",
+                          ["%s : question bloquante sans réponse" % c for c in sans_reponse])
+    regles.verifier_transition(m.statut, "REECRITURE")
+    m.statut = "REECRITURE"
+    journal.ajouter(db, m.organisation_id, "reecriture_lancee", mission_id=m.id, acteur_id=u.id,
+                    details={"version": v.numero})
+    db.commit()
+    return taches.lancer(db, m, v, "REECRITURE")
+
+
+def ecarter_critere(db: Session, u: Utilisateur, m: Mission, critere_id: int, motif: str) -> None:
+    """L'humain écarte un critère (souvent une hypothèse) : décision motivée et journalisée."""
+    v = _version_modifiable(m, ("ATTENTE_PV1",), "Écarter un critère")
+    c = db.get(CritereAcceptation, critere_id)
+    if c is None or c.version_id != v.id:
+        raise RegleViolee("RA-05", "Critère introuvable sur la version courante")
+    if not (motif or "").strip():
+        raise RegleViolee("RA-20", "Écarter un critère doit être motivé")
+    journal.ajouter(db, m.organisation_id, "critere_ecarte", mission_id=m.id, acteur_id=u.id,
+                    details={"critere": c.code, "texte": c.texte, "statut": c.statut,
+                             "motif": motif.strip()})
+    db.delete(c)
+    db.commit()
+
+
+def relancer(db: Session, u: Utilisateur, m: Mission):
+    """Relance l'agent après un échec : analyse (ECHEC_ANALYSE) ou conception (CONCEPTION)."""
+    if taches.en_cours(db, m.id):
+        raise RegleViolee("RA-39", "Une tâche IA est déjà en cours sur cette mission")
+    v = version_courante(m)
+    if m.statut == "ECHEC_ANALYSE":
+        regles.verifier_transition(m.statut, "ANALYSE_EN_COURS")
+        m.statut = "ANALYSE_EN_COURS"
+        type_tache = "ANALYSE"
+    elif m.statut == "CONCEPTION":
+        type_tache = "CONCEPTION"
+    else:
+        raise RegleViolee("RA-11", "Rien à relancer au statut %s" % m.statut)
+    journal.ajouter(db, m.organisation_id, "tache_relancee", mission_id=m.id, acteur_id=u.id,
+                    details={"type": type_tache, "version": v.numero})
+    db.commit()
+    return taches.lancer(db, m, v, type_tache)
+
+
+CHAMPS_CAS = ("titre", "objectif", "exigence", "technique", "justification_technique",
+              "priorite", "type", "preconditions", "donnees_test", "etapes", "resultat_attendu")
+
+
+def modifier_cas(db: Session, u: Utilisateur, m: Mission, cas_id: int, champs: dict,
+                 confirmer: bool) -> CasTest:
+    """Correction humaine d'un cas avant PV-2 ; le statut est recalculé (RA-23, RA-24)."""
+    v = _version_modifiable(m, ("ATTENTE_PV2",), "Modifier un cas", exigence=False)
+    c = db.get(CasTest, cas_id)
+    if c is None or c.version_id != v.id:
+        raise RegleViolee("RA-05", "Cas introuvable sur la version courante")
+    modifies = {}
+    for k, val in champs.items():
+        if k in CHAMPS_CAS and val is not None and val != getattr(c, k):
+            modifies[k] = {"avant": getattr(c, k), "apres": val}
+            setattr(c, k, val.strip())
+    refs = scripts_qa.references(c.exigence)
+    connues = {x.code for x in v.criteres} | set(scripts_qa.references(v.texte))
+    statut_ia = "A_CLARIFIER" if c.statut == "A_CLARIFIER" else "OK"
+    statut, motif = regles.statut_cas(c.preconditions, c.donnees_test, c.resultat_attendu,
+                                      statut_ia, confirme_par_humain=confirmer)
+    problemes = []
+    if not c.justification_technique.strip():
+        problemes.append("technique non justifiée")
+    if not refs:
+        problemes.append("aucune exigence tracée")
+    inconnues = [r for r in refs if r not in connues]
+    if inconnues:
+        problemes.append("référence inconnue : %s" % ", ".join(inconnues))
+    if problemes and statut == "PRET":
+        statut, motif = "INCOMPLET", "; ".join(problemes)
+    if confirmer and statut == "PRET":
+        c.confirme_par_id = u.id
+    c.statut, c.motif_statut = statut, motif
+    db.execute(Trace.__table__.delete().where(Trace.cas_id == c.id))
+    for r in refs:
+        if r in connues:
+            db.add(Trace(cas_id=c.id, reference=r))
+    journal.ajouter(db, m.organisation_id, "cas_modifie", mission_id=m.id, acteur_id=u.id,
+                    details={"cas": c.code, "modifications": modifies, "confirme": confirmer,
+                             "statut": statut})
+    db.commit()
+    return c

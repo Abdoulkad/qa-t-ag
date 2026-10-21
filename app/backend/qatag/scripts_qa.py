@@ -65,3 +65,104 @@ def analyser_rapport_revue(rapport: str, texte_sfd: str) -> dict:
     return {"code": 1 if absentes else 0,
             "erreurs": ["Citation absente du texte : %s" % c for c in sorted(absentes)],
             "statut": statut, "defauts": defauts}
+
+
+def verifier_reecriture(origine: str, rapport: str, questions_repondues: list[str]) -> dict:
+    """RA-19, RA-20 : verifier_reecriture.py tranche SOURCE / HYPOTHESE."""
+    vr = _module("verifier_reecriture")
+    code, texte, criteres, erreurs = vr.verifier(origine, rapport, questions_repondues)
+    return {"code": code, "texte": texte, "criteres": criteres, "erreurs": erreurs}
+
+
+EN_TETE_CAS = ["ID", "Titre", "Objectif", "Exigence", "Technique", "Priorité", "Type",
+               "Préconditions", "Données de test", "Étapes", "Résultat attendu",
+               "Statut livrable"]
+RE_REFERENCE = re.compile(r"\b(?:REQ|BR|CA)-\d+\b")
+RE_JUSTIF = re.compile(r"^\s*(CT-\d{3})\s*:\s*(.+?)\s*$")
+
+
+def separer_conception(sortie_ia: str) -> tuple[str, dict[str, str]]:
+    """Sépare le CSV des cas et le bloc « ## Justifications » (CT-nnn : …)."""
+    lignes = sortie_ia.splitlines()
+    debut = next((i for i, l in enumerate(lignes)
+                  if l.strip().startswith("ID;Titre;Objectif;Exigence;Technique")), None)
+    if debut is None:
+        return "", {}
+    csv_lignes, justifs, dans_justifs = [], {}, False
+    for l in lignes[debut:]:
+        s = l.strip()
+        if s.startswith("```"):
+            continue
+        if s.lower().startswith("## justification"):
+            dans_justifs = True
+            continue
+        if dans_justifs:
+            m = RE_JUSTIF.match(s)
+            if m:
+                justifs[m.group(1)] = m.group(2)
+        elif s:
+            csv_lignes.append(s)
+    return "\n".join(csv_lignes) + "\n", justifs
+
+
+def controler_cas(texte_reference: str, csv_texte: str) -> dict:
+    """Contrôle de format par controler_cas.py, puis lecture des lignes.
+
+    Retourne {"code", "message", "lignes"} ; code 2 = format inexploitable.
+    """
+    import csv
+    import io
+    cc = _module("controler_cas")
+    with tempfile.TemporaryDirectory() as d:
+        sfd = os.path.join(d, "reference.md")
+        cas = os.path.join(d, "cas-mission.csv")
+        with open(sfd, "w", encoding="utf-8") as f:
+            f.write(texte_reference)
+        with open(cas, "w", encoding="utf-8") as f:
+            f.write(csv_texte)
+        code, message = cc.controler(sfd, cas)
+    lignes = list(csv.reader(io.StringIO(csv_texte), delimiter=";"))
+    lignes = [l for l in lignes[1:] if len(l) == 12] if lignes and lignes[0] == EN_TETE_CAS else []
+    return {"code": code, "message": message, "lignes": lignes}
+
+
+def references(exigence: str) -> list[str]:
+    vus = []
+    for m in RE_REFERENCE.finditer(exigence or ""):
+        if m.group(0) not in vus:
+            vus.append(m.group(0))
+    return vus
+
+
+_TECHNIQUES = {
+    "partitions d'équivalence": "partitions d'équivalence",
+    "partitions d'equivalence": "partitions d'équivalence",
+    "partition d'équivalence": "partitions d'équivalence",
+    "valeurs limites": "valeurs limites", "valeur limite": "valeurs limites",
+    "analyse des valeurs limites": "valeurs limites",
+    "table de décision": "table de décision", "table de decision": "table de décision",
+    "tables de décision": "table de décision",
+    "transitions d'état": "transitions d'état", "transitions d'etat": "transitions d'état",
+    "transition d'état": "transitions d'état",
+}
+
+
+def normaliser_csv(csv_texte: str) -> str:
+    """Normalise les variantes d'écriture de la technique (repris de l'app
+    Streamlit) ; le reste est laissé tel quel pour que le contrôle tranche."""
+    sortie = []
+    for i, ligne in enumerate(csv_texte.splitlines()):
+        parts = ligne.split(";")
+        if i > 0 and len(parts) == 12:
+            parts[4] = _TECHNIQUES.get(parts[4].strip().lower(), parts[4].strip())
+        sortie.append(";".join(parts))
+    return "\n".join(sortie) + "\n"
+
+
+def statut_agent(valeur: str) -> str:
+    """Statut livrable écrit par l'IA, normalisé par statuts.py (inconnu -> A_CLARIFIER)."""
+    st = _module("statuts")
+    try:
+        return st.normaliser_statut_agent(valeur)
+    except ValueError:
+        return "A_CLARIFIER"
