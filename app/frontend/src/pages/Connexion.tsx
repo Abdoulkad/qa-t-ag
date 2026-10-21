@@ -10,6 +10,7 @@ export default function Connexion() {
   const [email, setEmail] = useState("");
   const [nom, setNom] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
+  const [voir, setVoir] = useState(false);
   const { enCours, erreur, lancer } = useAction();
 
   const envoyer = (ev: FormEvent) => {
@@ -43,12 +44,27 @@ export default function Connexion() {
         </ol>
       </section>
       <section className="connexion-formulaire">
-        <form className="connexion-carte" onSubmit={envoyer}>
-          <h2>{mode === "connexion" ? "Se connecter" : "Créer un compte"}</h2>
+        <form className="connexion-cadre" onSubmit={envoyer} aria-labelledby="titre-connexion">
+          <div className="connexion-surtitre">{mode === "connexion" ? "Bon retour" : "Bienvenue"}</div>
+          <h2 id="titre-connexion" className="titre-mono">
+            {mode === "connexion" ? "Content de vous revoir" : "Créer votre compte"}
+          </h2>
+          <p className="discret-texte" style={{ fontSize: "0.92rem" }}>
+            {mode === "connexion"
+              ? "Retrouvez vos missions, vos validations et vos exports de cas de test."
+              : "Quelques secondes suffisent : nom, e-mail et mot de passe."}
+          </p>
+
+          <div className="bascule" role="group" aria-label="Choisir une action">
+            <button type="button" aria-pressed={mode === "connexion"} onClick={() => setMode("connexion")}>Se connecter</button>
+            <button type="button" aria-pressed={mode === "inscription"} onClick={() => setMode("inscription")}>Créer un compte</button>
+          </div>
+
           {mode === "inscription" && (
             <div className="champ">
               <label htmlFor="nom">Nom</label>
-              <input id="nom" type="text" value={nom} onChange={(e) => setNom(e.target.value)} autoComplete="name" />
+              <input id="nom" type="text" value={nom} onChange={(e) => setNom(e.target.value)} autoComplete="name"
+                     placeholder="Prénom Nom" />
             </div>
           )}
           <div className="champ">
@@ -58,29 +74,40 @@ export default function Connexion() {
           </div>
           <div className="champ">
             <label htmlFor="mdp">Mot de passe</label>
-            <input id="mdp" type="password" required minLength={mode === "inscription" ? 8 : undefined}
-                   value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)}
-                   autoComplete={mode === "connexion" ? "current-password" : "new-password"} />
+            <div className="champ-mdp">
+              <input id="mdp" type={voir ? "text" : "password"} required
+                     minLength={mode === "inscription" ? 8 : undefined}
+                     value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)}
+                     placeholder="Votre mot de passe"
+                     autoComplete={mode === "connexion" ? "current-password" : "new-password"} />
+              <button type="button" className="oeil" onClick={() => setVoir(!voir)}
+                      aria-label={voir ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={voir}>
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                  <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                  {voir && <path d="M4 4 20 20" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />}
+                </svg>
+              </button>
+            </div>
             {mode === "inscription" && <span className="aide">8 caractères minimum.</span>}
           </div>
           <MessageErreur erreur={erreur} />
-          <button className="bouton principal" disabled={enCours}>
-            {mode === "connexion" ? "Se connecter" : "Créer mon compte"}
+          <button className="bouton principal connexion-valider" disabled={enCours}>
+            {enCours ? "Un instant…" : mode === "connexion" ? "Accéder à mes missions" : "Créer mon compte"}
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <p className="discret-texte">
-            {mode === "connexion" ? "Pas encore de compte ? " : "Déjà un compte ? "}
-            <button type="button" className="bouton discret petit"
-                    onClick={() => setMode(mode === "connexion" ? "inscription" : "connexion")}>
-              {mode === "connexion" ? "Créer un compte" : "Se connecter"}
-            </button>
+          <p className="connexion-note">
+            {mode === "connexion"
+              ? "Vos missions sont conservées sur le serveur QA-T-AG de votre organisation, et restent visibles depuis n'importe quel navigateur."
+              : "Le premier compte de l'installation reçoit tous les rôles. Les suivants sont Analyste QA ; un administrateur peut les promouvoir."}
           </p>
-          {mode === "inscription" && (
-            <p className="discret-texte">
-              Le premier compte de l'installation reçoit tous les rôles. Les suivants sont
-              Analyste QA ; un administrateur peut les promouvoir.
-            </p>
-          )}
         </form>
+        <p className="connexion-pied">
+          {mode === "connexion" ? "Pas encore de compte ? " : "Déjà un compte ? "}
+          <button type="button" className="lien" onClick={() => setMode(mode === "connexion" ? "inscription" : "connexion")}>
+            {mode === "connexion" ? "Créez-en un en une minute" : "Se connecter"}
+          </button>
+        </p>
       </section>
     </div>
   );
