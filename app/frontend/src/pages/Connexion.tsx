@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { MessageErreur, useAction } from "../composants";
-import { Icone } from "../Cadre";
+import { Marque } from "../Logo";
 import { useSession } from "../session";
 
 export default function Connexion() {
@@ -27,10 +27,7 @@ export default function Connexion() {
   return (
     <div className="connexion">
       <section className="connexion-recit">
-        <div className="marque">
-          <span className="marque-logo"><Icone nom="marque" /></span>
-          <span className="marque-nom">QA-T-AG</span>
-        </div>
+        <div className="marque"><Marque /></div>
         <h1>L'agent prépare vos tests. Vous décidez.</h1>
         <p>
           QA-T-AG relit vos exigences, conçoit les cas de test et en garde la trace.

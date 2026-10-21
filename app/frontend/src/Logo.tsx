@@ -1,0 +1,28 @@
+/** Logo QA-T-AG : le losange de la Human Gate, la coche de la validation humaine,
+ *  et l'étincelle de l'agent IA. Même dessin que public/favicon.svg. */
+export function Logo({ taille = 36 }: { taille?: number }) {
+  return (
+    <svg width={taille} height={taille} viewBox="0 0 32 32" role="img" aria-label="QA-T-AG">
+      <rect x="0" y="0" width="32" height="32" rx="8" fill="#1f5fa6" />
+      <path d="M0 21 L32 11 V24 a8 8 0 0 1 -8 8 H8 a8 8 0 0 1 -8 -8 Z" fill="#174a83" />
+      <path d="M16 5.5 26.5 16 16 26.5 5.5 16Z" fill="rgba(255,255,255,0.14)" stroke="#ffffff"
+            strokeWidth="2" strokeLinejoin="round" />
+      <path d="m11.4 16.3 3.2 3.2 6.2-6.6" fill="none" stroke="#ffffff" strokeWidth="2.4"
+            strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M25.6 3.6 26.3 5.5 28.2 6.2 26.3 6.9 25.6 8.8 24.9 6.9 23 6.2 24.9 5.5Z" fill="#9fd0ff" />
+    </svg>
+  );
+}
+
+/** Logo et nom, pour la barre latérale et la page de connexion. */
+export function Marque({ sousTitre = true }: { sousTitre?: boolean }) {
+  return (
+    <>
+      <Logo />
+      <span>
+        <span className="marque-nom">QA<span className="marque-tiret">-</span>T<span className="marque-tiret">-</span>AG</span>
+        {sousTitre && <span className="marque-sous">Agent QA, validé par un humain</span>}
+      </span>
+    </>
+  );
+}

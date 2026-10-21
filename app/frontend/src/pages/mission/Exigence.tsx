@@ -216,7 +216,7 @@ function QuestionCompacte({ q, missionId, modifiable, recharger, selectionnee, b
   const annuler = useAction();
   if (ouvert) {
     return (
-      <div style={{ background: "#f7faff" }}>
+      <div style={{ background: "var(--surface-bleutee)" }}>
         <QuestionLigne q={q} missionId={missionId} modifiable={modifiable} selectionnee={selectionnee}
                        basculer={basculer} recharger={() => { setOuvert(false); recharger(); }} />
         <div style={{ padding: "0 18px 10px" }}>

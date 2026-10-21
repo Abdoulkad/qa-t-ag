@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api, type Pilotage } from "./api";
 import { initiales } from "./composants";
+import { Marque } from "./Logo";
 import { ROLES } from "./libelles";
 import { useSession } from "./session";
 
@@ -38,12 +39,8 @@ export default function Cadre() {
   return (
     <div className="cadre">
       <aside className="barre">
-        <NavLink to="/" className="marque">
-          <span className="marque-logo"><Icone nom="marque" /></span>
-          <span>
-            <div className="marque-nom">QA-T-AG</div>
-            <div className="marque-sous">Agent QA, validé par un humain</div>
-          </span>
+        <NavLink to="/" className="marque" aria-label="QA-T-AG, vue de pilotage">
+          <Marque />
         </NavLink>
         <nav className="nav" aria-label="Navigation principale">
           {acteur && <>
