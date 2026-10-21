@@ -399,7 +399,7 @@ function JournalMission({ missionId }: { missionId: number }) {
       <ul className="journal">
         {(donnees ?? []).map((e) => (
           <li key={e.id}>
-            <div className="quand">{date(e.horodatage)}{e.agent ? " · " + e.agent : ""}</div>
+            <div className="quand">{date(e.horodatage)} · {e.acteur ? (e.acteur.nom || e.acteur.email) : e.agent ? (e.agent.startsWith("AG-") ? "Agent " + e.agent : e.agent) : "Agent IA"}</div>
             <div>{EVENEMENTS[e.evenement] ?? e.evenement}</div>
             <DetailsJournal e={e} />
           </li>

@@ -47,3 +47,14 @@ def test_pretes_pour_la_recette(client, admin, ia):
     client.post("/api/missions/%d/portes/PV-2" % mid, json={"decision": "APPROUVE"}, headers=admin)
     p = client.get("/api/pilotage", headers=admin).json()
     assert [x["prochaine_action"] for x in p["pretes_recette"]] == ["Prête pour la recette"]
+
+
+def test_journal_donne_le_nom_de_qui_a_agi(client, admin, ia):
+    mid = _creer(client, admin)
+    j = client.get("/api/journal", headers=admin).json()
+    creee = next(e for e in j if e["evenement"] == "mission_creee")
+    assert creee["acteur"]["email"] and creee["mission_id"] == mid
+    analyse = next(e for e in j if e["evenement"] == "analyse_terminee")
+    assert analyse["acteur"] is None and analyse["agent"] == "AG-01"
+    jm = client.get("/api/missions/%d/journal" % mid, headers=admin).json()
+    assert jm[0]["acteur"]["email"] == creee["acteur"]["email"]

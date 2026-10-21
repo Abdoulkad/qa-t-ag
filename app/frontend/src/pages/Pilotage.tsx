@@ -19,6 +19,24 @@ const ICONES: Record<string, ReactNode> = {
   succes: <path d="m5 12 4.5 4.5L19 7" {...trait} strokeWidth={2.2} />,
 };
 
+/** Qui a agi : la personne (nom, sinon e-mail), ou l'agent IA. */
+function auteur(e: EntreeJournal) {
+  if (e.acteur) return e.acteur.nom || e.acteur.email;
+  if (e.agent && /^AG-/.test(e.agent)) return "Agent " + e.agent;
+  return e.agent ? e.agent : "Agent IA";
+}
+
+/** Une précision courte sur l'action (porte, question, critère, motif…). */
+function precision(e: EntreeJournal) {
+  const d = e.details as Record<string, unknown>;
+  if (e.evenement === "porte_decidee") return `${String(e.agent ?? d.porte ?? "")} ${d.decision === "APPROUVE" ? "approuvé" : "rejeté"}`;
+  if (e.evenement === "conception_terminee" && typeof d.cas === "number") return `${d.cas} cas`;
+  const morceaux = [d.question, d.critere, d.regle, d.defaut, d.cas].filter(Boolean).map(String);
+  if (d.defauts !== undefined) morceaux.push(`${d.defauts} défaut(s), clarté ${d.score_clarte}/100`);
+  if (d.motif) morceaux.push("« " + String(d.motif) + " »");
+  return morceaux.join(" · ");
+}
+
 function couleurClarte(s: number | null) {
   if (s === null) return "var(--encre-pale)";
   return s >= 70 ? "var(--succes)" : s >= 40 ? "var(--attente)" : "var(--alerte)";
@@ -57,7 +75,7 @@ export default function PilotagePage() {
   const navigate = useNavigate();
   const p = useDonnees<Pilotage>("/pilotage");
   const missions = useDonnees<ResumeMission[]>("/missions");
-  const journal = useDonnees<EntreeJournal[]>("/journal?limite=10");
+  const journal = useDonnees<EntreeJournal[]>("/journal?limite=12");
   const [filtre, setFiltre] = useState("cours");
   const [recherche, setRecherche] = useState("");
 
@@ -96,7 +114,8 @@ export default function PilotagePage() {
         </div>
       )}
 
-      <section className="panneau">
+      <div className="pilotage-colonnes">
+      <section className="panneau" style={{ minWidth: 0 }}>
         <div className="panneau-entete" style={{ flexWrap: "wrap", gap: 12 }}>
           <h2>Missions</h2>
           <div className="puces" role="group" aria-label="Filtrer les missions">
@@ -153,25 +172,32 @@ export default function PilotagePage() {
         )}
       </section>
 
-      {(journal.donnees ?? []).length > 0 && (
-        <section className="panneau">
-          <div className="panneau-entete"><h2>Activité récente</h2></div>
-          <div className="panneau-corps">
-            <ul className="journal">
-              {(journal.donnees ?? []).map((e) => (
-                <li key={e.id}>
-                  <div className="quand">{date(e.horodatage)}</div>
-                  <div>
-                    {e.mission_id && <Link className="ref" to={"/missions/" + e.mission_id}>{refs.get(e.mission_id) ?? "Mission"}</Link>}{" "}
-                    {EVENEMENTS[e.evenement] ?? e.evenement}
-                    {e.evenement === "porte_decidee" && <> · {String(e.agent)} {e.details.decision === "APPROUVE" ? "approuvé" : "rejeté"}</>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      <aside className="journal-qa" aria-labelledby="titre-journal">
+        <h2 id="titre-journal" className="titre-mono">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          Journal QA
+        </h2>
+        {journal.donnees?.length === 0 && <p className="discret-texte">Rien pour l'instant.</p>}
+        <ol className="fil-journal">
+          {(journal.donnees ?? []).map((e) => (
+            <li key={e.id}>
+              <div className="quand">{date(e.horodatage)}</div>
+              <div className="qui">
+                {e.mission_id
+                  ? <Link to={"/missions/" + e.mission_id}>{refs.get(e.mission_id) ?? "Mission"}</Link>
+                  : <span>QA-T-AG</span>}
+                {" · "}<span title={e.acteur?.email}>{auteur(e)}</span>
+              </div>
+              <div className="quoi">
+                {EVENEMENTS[e.evenement] ?? e.evenement}
+                {precision(e) && <> — {precision(e)}</>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </aside>
+      </div>
+
     </div>
   );
 }

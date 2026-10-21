@@ -210,10 +210,19 @@ def tache(tache_id: int, u: Utilisateur = Depends(utilisateur_courant),
             "mission_id": t.mission_id, "cree_le": t.cree_le, "termine_le": t.termine_le}
 
 
-def _entree(e: EntreeJournal) -> dict:
+def _entree(e: EntreeJournal, acteurs: dict[int, Utilisateur] | None = None) -> dict:
+    a = (acteurs or {}).get(e.acteur_id) if e.acteur_id else None
     return {"id": e.id, "mission_id": e.mission_id, "acteur_id": e.acteur_id, "agent": e.agent,
+            "acteur": {"nom": a.nom, "email": a.email} if a else None,
             "evenement": e.evenement, "details": json.loads(e.details),
             "horodatage": e.horodatage}
+
+
+def _entrees(db: Session, entrees: list[EntreeJournal]) -> list[dict]:
+    """Entrées du journal avec le nom et l'e-mail de la personne qui a agi."""
+    ids = {e.acteur_id for e in entrees if e.acteur_id}
+    acteurs = {u.id: u for u in db.scalars(select(Utilisateur).where(Utilisateur.id.in_(ids)))} if ids else {}
+    return [_entree(e, acteurs) for e in entrees]
 
 
 @routeur.get("/journal")
@@ -224,15 +233,15 @@ def journal_recent(limite: int = 30, u: Utilisateur = Depends(utilisateur_couran
         EntreeJournal.organisation_id == u.organisation_id,
         EntreeJournal.mission_id.in_(ids_visibles))
         .order_by(EntreeJournal.id.desc()).limit(min(limite, 200))).all()
-    return [_entree(e) for e in entrees]
+    return _entrees(db, list(entrees))
 
 
 @routeur.get("/missions/{mission_id}/journal")
 def journal_mission(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
                     db: Session = Depends(session_db)):
     m = _mission(db, u, mission_id)
-    return [_entree(e) for e in db.scalars(select(EntreeJournal).where(
-        EntreeJournal.mission_id == m.id).order_by(EntreeJournal.id)).all()]
+    return _entrees(db, list(db.scalars(select(EntreeJournal).where(
+        EntreeJournal.mission_id == m.id).order_by(EntreeJournal.id)).all()))
 
 
 @routeur.get("/pilotage")

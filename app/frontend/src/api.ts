@@ -219,6 +219,7 @@ export interface Tache {
 
 export interface EntreeJournal {
   id: number; mission_id: number | null; acteur_id: number | null; agent: string | null;
+  acteur: { nom: string; email: string } | null;
   evenement: string; details: Record<string, unknown>; horodatage: string;
 }
 

@@ -623,3 +623,19 @@ h2.titre-mono { font-size: 1.1rem; }
 .connexion-valider { width: 100%; justify-content: center; display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 11px; font-weight: 600; margin-top: 4px; }
 .connexion-note { font-size: 0.82rem; color: var(--encre-douce); text-align: center; }
 .connexion-pied { font-size: 0.88rem; color: var(--encre-douce); }
+
+/* --- Vue de pilotage : Journal QA à droite --------------------------------- */
+.pilotage-colonnes { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 22px; align-items: start; }
+@media (max-width: 1080px) { .pilotage-colonnes { grid-template-columns: 1fr; } }
+.journal-qa h2 { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin: 4px 0 14px; }
+.journal-qa h2 svg { color: var(--encre-douce); }
+.fil-journal { list-style: none; margin: 0; padding: 0; }
+.fil-journal li { position: relative; padding: 0 0 18px 22px; }
+.fil-journal li::before { content: ""; position: absolute; left: 0; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--succes); }
+.fil-journal li::after { content: ""; position: absolute; left: 4px; top: 17px; bottom: 0; width: 1px; background: var(--trait-fort); }
+.fil-journal li:last-child::after { display: none; }
+.fil-journal .quand { font: 0.76rem var(--police-code); color: var(--encre-pale); }
+.fil-journal .qui { font: 500 0.88rem var(--police-code); color: var(--action); margin-top: 2px; }
+.fil-journal .qui a { color: inherit; text-decoration: none; }
+.fil-journal .qui a:hover { text-decoration: underline; }
+.fil-journal .quoi { font-size: 0.88rem; color: var(--encre); margin-top: 2px; }
