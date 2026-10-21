@@ -1,6 +1,8 @@
 /** Logo QA-T-AG : carré bleu (bleu profond + bleu secondaire), losange blanc de la
- *  Human Gate, coche de la validation humaine, étoile cyan discrète de l'IA. Même dessin que public/favicon.svg. */
+ *  Human Gate, coche de la validation humaine, étoile cyan discrète de l'IA. Même dessin que public/logo-qatag.svg ;
+ *  en dessous de 28 px, la version simplifiée (public/logo-qatag-petit.svg, favicon). */
 export function Logo({ taille = 36 }: { taille?: number }) {
+  if (taille < 28) return <LogoPetit taille={taille} />;
   return (
     <svg width={taille} height={taille} viewBox="0 0 32 32" role="img" aria-label="QA-T-AG">
       <rect x="0" y="0" width="32" height="32" rx="8" fill="#1f5fa6" />
@@ -24,5 +26,18 @@ export function Marque({ sousTitre = true }: { sousTitre?: boolean }) {
         {sousTitre && <span className="marque-sous">L'IA au service de la qualité logicielle</span>}
       </span>
     </>
+  );
+}
+
+/** Version petites tailles (moins de 28 px, favicon) : aplat bleu, losange et coche
+ *  épaissis, sans étoile ni deux tons qui deviendraient illisibles. */
+export function LogoPetit({ taille = 16 }: { taille?: number }) {
+  return (
+    <svg width={taille} height={taille} viewBox="0 0 32 32" role="img" aria-label="QA-T-AG">
+      <rect width="32" height="32" rx="7" fill="#1f5fa6" />
+      <path d="M16 4.2 27.8 16 16 27.8 4.2 16Z" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+      <path d="m11 16.4 3.6 3.6 6.6-7.2" fill="none" stroke="#ffffff" strokeWidth="3.4"
+            strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
