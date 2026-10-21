@@ -42,31 +42,19 @@ function couleurClarte(s: number | null) {
   return s >= 70 ? "var(--succes)" : s >= 40 ? "var(--attente)" : "var(--alerte)";
 }
 
-/** Une carte « à faire » : un ton, un compte, les missions concernées. */
-function CarteAFaire({ ton, titre, missions, detail, rien }: {
-  ton: "porte" | "attente" | "alerte" | "succes"; titre: string; missions: ResumeMission[];
-  detail: (m: ResumeMission) => string; rien: string;
+/** Une carte « à faire » : un ton, un libellé, un nombre. */
+function CarteAFaire({ ton, titre, nombre }: {
+  ton: "porte" | "attente" | "alerte" | "succes"; titre: string; nombre: number;
 }) {
   return (
-    <section className={"carte-afaire " + ton} aria-label={titre}>
+    <section className={"carte-afaire " + ton} aria-label={`${titre} : ${nombre}`}>
       <div className="carte-afaire-tete">
         <span className="carte-afaire-titre">
           <span className="carte-afaire-icone"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">{ICONES[ton]}</svg></span>
           {titre}
         </span>
-        <span className="carte-afaire-nombre">{missions.length}</span>
+        <span className="carte-afaire-nombre">{nombre}</span>
       </div>
-      {missions.length ? (
-        <ul>
-          {missions.slice(0, 4).map((m) => (
-            <li key={m.id}>
-              <Link to={"/missions/" + m.id}><span className="ref">{m.reference}</span> {m.titre}</Link>
-              <span className="detail"> · {detail(m)}</span>
-            </li>
-          ))}
-          {missions.length > 4 && <li className="detail">et {missions.length - 4} autre(s)</li>}
-        </ul>
-      ) : <div className="rien">{rien}</div>}
     </section>
   );
 }
@@ -102,15 +90,10 @@ export default function PilotagePage() {
 
       {p.donnees && (
         <div className="cartes-afaire">
-          <CarteAFaire ton="porte" titre="Human Gates en attente" missions={p.donnees.file_human_gate}
-                       detail={(m) => (m.statut === "ATTENTE_PV1" ? "PV-1" : "PV-2") + (m.bloquants ? ` · ${m.bloquants} point(s) à traiter` : "")}
-                       rien="Aucune décision en attente." />
-          <CarteAFaire ton="attente" titre="Questions bloquantes" missions={p.donnees.questions_bloquantes}
-                       detail={(m) => m.questions_bloquantes.join(", ")} rien="Aucune question ne bloque la réécriture." />
-          <CarteAFaire ton="alerte" titre="Agent en échec" missions={p.donnees.en_echec}
-                       detail={(m) => m.en_echec ?? ""} rien="Aucun échec : tous les agents ont abouti." />
-          <CarteAFaire ton="succes" titre="Prêtes pour la recette" missions={p.donnees.pretes_recette}
-                       detail={(m) => `${m.cas.total} cas validés`} rien="Aucune mission validée à PV-2 pour l'instant." />
+          <CarteAFaire ton="porte" titre="Human Gates en attente" nombre={p.donnees.file_human_gate.length} />
+          <CarteAFaire ton="attente" titre="Questions bloquantes" nombre={p.donnees.questions_bloquantes.reduce((n, m) => n + m.questions_bloquantes.length, 0)} />
+          <CarteAFaire ton="alerte" titre="Agent en échec" nombre={p.donnees.en_echec.length} />
+          <CarteAFaire ton="succes" titre="Prêtes pour la recette" nombre={p.donnees.pretes_recette.length} />
         </div>
       )}
 
