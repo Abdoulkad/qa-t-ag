@@ -1,5 +1,22 @@
 version: 2
 updates:
+  # Application web v1.0 : serveur FastAPI
+  - package-ecosystem: "pip"
+    directory: "/app/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+  # Application web v1.0 : interface React
+  - package-ecosystem: "npm"
+    directory: "/app/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+  # Ancienne application Streamlit (non maintenue)
   - package-ecosystem: "pip"
     directory: "/webapp"
     schedule:
@@ -7,7 +24,3 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
