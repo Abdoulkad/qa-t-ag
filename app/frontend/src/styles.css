@@ -543,3 +543,25 @@ details.replie summary { cursor: pointer; color: var(--action); font-size: 0.9re
 .champ-recherche { position: relative; }
 .champ-recherche svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--encre-pale); pointer-events: none; }
 .champ-recherche input { padding-left: 34px; width: 100%; }
+
+/* --- Analyse des exigences ------------------------------------------------ */
+.surtitre { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-douce); margin: 4px 0 6px; }
+.titre-mono { font-family: var(--police-code); font-weight: 600; letter-spacing: 0.01em; }
+h1.titre-mono { font-size: 1.7rem; }
+h2.titre-mono { font-size: 1.1rem; }
+.panneau-exigence {
+  background: #e9f2fb; border: 2px solid #a9c8e8; border-radius: 10px; padding: 22px 24px 24px;
+  box-shadow: 0 1px 3px rgba(23, 74, 131, 0.06);
+}
+.etiquette-bleue { font-size: 0.75rem !important; font-weight: 600 !important; letter-spacing: 0.06em; text-transform: uppercase; color: var(--action) !important; }
+.depot-exigence {
+  margin-top: 16px; border: 2px dashed #8fb6df; border-radius: 8px; padding: 22px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.55); color: var(--encre);
+}
+.depot-exigence svg { color: var(--encre-douce); }
+.depot-exigence:hover, .depot-exigence.survol { border-color: var(--action); background: #ffffff; }
+.depot-exigence.rempli { border-style: solid; background: #ffffff; }
+.depot-formats { font: 0.8rem var(--police-code); color: var(--encre-douce); }
+.saisie-exigence { font-family: var(--police-code); font-size: 0.9rem; line-height: 1.6; border: 1.5px solid #8fb6df; background: #fff; }
+.panneau-exigence input[type="text"] { background: #fff; border-color: #a9c8e8; }

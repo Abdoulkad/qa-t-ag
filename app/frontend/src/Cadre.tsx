@@ -48,7 +48,7 @@ export default function Cadre() {
             <NavLink to="/" end><Icone nom="pilotage" />Vue de pilotage
               {enAttente > 0 && <span className="compteur" title="Décisions Human Gate en attente">{enAttente}</span>}
             </NavLink>
-            <NavLink to="/analyse"><Icone nom="analyse" />Analyser une exigence</NavLink>
+            <NavLink to="/analyse"><Icone nom="analyse" />Analyse des exigences</NavLink>
             <NavLink to="/cas"><Icone nom="cas" />Suivi des cas</NavLink>
           </>}
           {a("ADMIN") && <>
