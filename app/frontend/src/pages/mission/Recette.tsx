@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { api, imageProtegee, telecharger, type Mission } from "../../api";
 import { MessageErreur, Pastille, useAction, useDonnees, Volet } from "../../composants";
 import {
@@ -149,10 +149,6 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
   const [commentaire, setCommentaire] = useState("");
   const [captures, setCaptures] = useState<File[]>([]);
   const action = useAction();
-  // Aperçus locaux : uniquement des adresses blob: créées ici, jamais un nom de fichier
-  const apercus = useMemo(() => captures.map((f) => URL.createObjectURL(f))
-    .map((u) => (u.startsWith("blob:") ? u : "")), [captures]);
-  useEffect(() => () => apercus.forEach((u) => URL.revokeObjectURL(u)), [apercus]);
 
   const ajouter = (fichiers: FileList | File[] | null) => {
     const images = Array.from(fichiers ?? []).filter((f) => /^image\/(png|jpeg)$/.test(f.type));
@@ -219,9 +215,9 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             <span className="aide">Astuce : collez une capture directement (Ctrl+V) dans ce formulaire.</span>
             {captures.length > 0 && (
               <div className="vignettes">
-                {apercus.map((u, i) => (
+                {captures.map((f, i) => (
                   <figure key={i}>
-                    {u.startsWith("blob:") && <img src={u} alt={`Capture ${i + 1} à envoyer`} />}
+                    <VignetteLocale fichier={f} libelle={`Capture ${i + 1} à envoyer`} />
                     <button type="button" className="lien" onClick={() => setCaptures(captures.filter((_, j) => j !== i))}>Retirer</button>
                   </figure>
                 ))}
@@ -262,6 +258,25 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
       )}
     </Volet>
   );
+}
+
+/** Aperçu d'une capture avant envoi, dessiné dans un canevas : l'image est décodée
+ *  par le navigateur, aucune adresse ni aucun nom de fichier n'entre dans la page. */
+function VignetteLocale({ fichier, libelle }: { fichier: File; libelle: string }) {
+  const toile = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let actif = true;
+    createImageBitmap(fichier).then((image) => {
+      const c = toile.current;
+      if (!actif || !c) { image.close(); return; }
+      const echelle = Math.max(c.width / image.width, c.height / image.height);
+      const l = image.width * echelle, h = image.height * echelle;
+      c.getContext("2d")?.drawImage(image, (c.width - l) / 2, (c.height - h) / 2, l, h);
+      image.close();
+    }).catch(() => {});
+    return () => { actif = false; };
+  }, [fichier]);
+  return <canvas ref={toile} width={240} height={160} role="img" aria-label={libelle} className="vignette-toile" />;
 }
 
 /** Capture enregistrée : chargée avec le jeton de session, ouverte en grand au clic. */

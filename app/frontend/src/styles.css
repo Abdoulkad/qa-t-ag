@@ -699,3 +699,4 @@ h2.titre-mono { font-size: 1.1rem; }
   .parcours-lien:has(+ .parcours-etape) { margin-right: -32px; }
   .parcours-lien:has(+ .parcours-porte) { margin-right: -20px; }
 }
+.vignette-toile { width: 120px; height: 80px; border-radius: 6px; border: 1px solid var(--trait); display: block; background: var(--surface-bleutee); }
