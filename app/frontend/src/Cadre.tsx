@@ -108,10 +108,10 @@ export default function Cadre() {
             <NavLink to="/configuration"><Icone nom="config" />Configuration IA</NavLink>
           </>}
         </nav>
-        <div className="barre-pied">
-          <NavLink to="/mot-de-passe" className="bouton discret"><Icone nom="cle" />Mot de passe</NavLink>
-          <button className="bouton discret" onClick={deconnecter}><Icone nom="sortie" />Se déconnecter</button>
-        </div>
+        <nav className="barre-pied" aria-label="Mon compte">
+          <NavLink to="/mot-de-passe" className="lien-compte"><Icone nom="cle" />Mot de passe</NavLink>
+          <button type="button" className="lien-compte sortie" onClick={deconnecter}><Icone nom="sortie" />Se déconnecter</button>
+        </nav>
       </aside>
       <div className="principal">
         <EnteteApp complement={complementFil} />
