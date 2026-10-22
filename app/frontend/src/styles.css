@@ -44,6 +44,8 @@ h2 { font-size: 1.15rem; }
 h3 { font-size: 1rem; }
 p { margin: 0; }
 a { color: var(--action); }
+/* Une seule police de texte partout : les champs et boutons ne gardent pas celle du navigateur. */
+button, input, select, textarea { font-family: inherit; }
 code, .ref { font-family: var(--police-code); font-size: 0.86em; }
 .ref { font-weight: 500; color: var(--action-fonce); white-space: nowrap; }
 
@@ -73,7 +75,7 @@ code, .ref { font-family: var(--police-code); font-size: 0.86em; }
   text-decoration: none; color: inherit;
 }
 .marque svg { flex: none; filter: drop-shadow(0 1px 2px rgba(23, 74, 131, 0.25)); }
-.marque-nom { display: block; font: 700 1.22rem var(--police-code); letter-spacing: 0.01em; color: #174a83; line-height: 1.15; }
+.marque-nom { display: block; font: 600 1.22rem var(--police-code); letter-spacing: 0.01em; color: #174a83; line-height: 1.15; }
 .marque-tiret { color: #3aa8d8; margin: 0 -0.12em; }   /* accent cyan discret ; tirets resserrés */
 .marque-sous { display: block; margin-top: 3px; font-size: 0.72rem; color: var(--encre-pale); white-space: nowrap; }   /* signature sur une seule ligne */
 
@@ -105,7 +107,7 @@ code, .ref { font-family: var(--police-code); font-size: 0.86em; }
   width: 3px; border-radius: 0 3px 3px 0; background: var(--accent-nav);
 }
 .nav .compteur {
-  margin-left: auto; font: 600 0.75rem var(--police-code);
+  margin-left: auto; font: 600 0.75rem var(--police); font-variant-numeric: tabular-nums;
   background: var(--porte); color: #fff; border-radius: 10px; padding: 1px 7px;
 }
 
@@ -266,7 +268,7 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
   border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
 .onglets button[aria-selected="true"] { color: var(--action-fonce); border-bottom-color: var(--action); }
-.onglets .nb { font: 500 0.75rem var(--police-code); color: var(--encre-pale); margin-left: 4px; }
+.onglets .nb { font: 500 0.75rem var(--police); font-variant-numeric: tabular-nums; color: var(--encre-pale); margin-left: 4px; }
 
 /* --- La chaîne : l'élément signature -------------------------------------
    Les étapes de l'agent sont des segments ; les Human Gates sont des
@@ -400,7 +402,7 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .connexion-recit > p { color: var(--encre-douce); max-width: 52ch; }
 .connexion-etapes { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; max-width: 460px; counter-reset: etape; }
 .connexion-etapes li { counter-increment: etape; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--trait); }
-.connexion-etapes li::before { content: counter(etape); font: 600 0.95rem var(--police-code); color: var(--action); }
+.connexion-etapes li::before { content: counter(etape); font: 600 0.95rem var(--police); color: var(--action); }
 .connexion-etapes p { color: var(--encre-douce); font-size: 0.9rem; }
 .connexion-formulaire {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 40px 24px;
@@ -515,7 +517,7 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
   width: 18px; height: 18px; transform: rotate(45deg); border: 2px solid var(--trait-fort);
   background: var(--surface); box-sizing: border-box; margin: 10px 0 12px;
 }
-.parcours-porte-nom { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 0.78rem; }
+.parcours-porte-nom { font-family: var(--police-code); font-weight: 600; font-size: 0.78rem; }
 .parcours-porte.attend { color: var(--porte); }
 .parcours-porte.attend .losange { background: var(--porte); border-color: var(--porte); box-shadow: 0 0 0 4px rgba(91, 75, 180, 0.15); }
 .parcours-porte.ouverte { color: var(--succes); }
@@ -583,12 +585,12 @@ details.replie summary { cursor: pointer; color: var(--action); font-size: 0.9re
 
 /* --- Suivi des cas : cartes indicateurs et filtres ----------------------- */
 :root { --sarcelle: #1d7471; --sarcelle-pale: #dff0ee; }
-.titre-icone { display: flex; align-items: center; gap: 10px; font-family: var(--police-code); font-weight: 600; }
+.titre-icone { display: flex; align-items: center; gap: 10px; }
 .titre-icone svg { color: var(--action); }
 .cartes-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
 .carte-kpi { border-radius: 10px; border: 1px solid; border-top-width: 6px; padding: 14px 18px 16px; }
 .carte-kpi-libelle { font-size: 0.9rem; color: var(--encre-douce); }
-.carte-kpi-valeur { font: 600 1.6rem/1.2 var(--police-code); color: var(--encre); margin-top: 4px; }
+.carte-kpi-valeur { font: 600 1.6rem/1.2 var(--police); font-variant-numeric: tabular-nums; color: var(--encre); margin-top: 4px; }
 .carte-kpi.bleu { background: #e1eefa; border-color: #bcd5ee; border-top-color: var(--action); }
 .carte-kpi.attente { background: #f7ece0; border-color: #e9d2b4; border-top-color: var(--attente); }
 .carte-kpi.succes { background: #e1f1e9; border-color: #bfdfcd; border-top-color: var(--succes); }
@@ -603,9 +605,6 @@ details.replie summary { cursor: pointer; color: var(--action); font-size: 0.9re
 
 /* --- Analyse des exigences ------------------------------------------------ */
 .surtitre { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-douce); margin: 4px 0 6px; }
-.titre-mono { font-family: var(--police-code); font-weight: 600; letter-spacing: 0.01em; }
-h1.titre-mono { font-size: 1.7rem; }
-h2.titre-mono { font-size: 1.1rem; }
 .panneau-exigence {
   background: #e9f2fb; border: 2px solid #a9c8e8; border-radius: 10px; padding: 22px 24px 24px;
   box-shadow: 0 1px 3px rgba(23, 74, 131, 0.06);
@@ -619,8 +618,8 @@ h2.titre-mono { font-size: 1.1rem; }
 .depot-exigence svg { color: var(--encre-douce); }
 .depot-exigence:hover, .depot-exigence.survol { border-color: var(--action); background: #ffffff; }
 .depot-exigence.rempli { border-style: solid; background: #ffffff; }
-.depot-formats { font: 0.8rem var(--police-code); color: var(--encre-douce); }
-.saisie-exigence { font-family: var(--police-code); font-size: 0.9rem; line-height: 1.6; border: 1.5px solid #8fb6df; background: #fff; }
+.depot-formats { font: 0.8rem var(--police); color: var(--encre-douce); }
+.saisie-exigence { font-size: 0.95rem; line-height: 1.6; border: 1.5px solid #8fb6df; background: #fff; }
 .panneau-exigence input[type="text"] { background: #fff; border-color: #a9c8e8; }
 
 /* --- Barre d'en-tête commune ---------------------------------------------- */
@@ -656,8 +655,8 @@ h2.titre-mono { font-size: 1.1rem; }
     0 2px 6px rgba(23, 74, 131, 0.06);
   position: relative;
 }
-.connexion-surtitre { font: 600 0.75rem var(--police-code); letter-spacing: 0.08em; text-transform: uppercase; color: var(--action); }
-.connexion-cadre h2.titre-mono { font-size: 1.45rem; }
+.connexion-surtitre { font: 600 0.75rem var(--police); letter-spacing: 0.08em; text-transform: uppercase; color: var(--action); }
+.connexion-cadre h2 { font-size: 1.45rem; }
 .bascule { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: #e9eff5; border: 1px solid var(--trait); border-radius: 9px; margin: 4px 0; }
 .bascule button { font: inherit; font-size: 0.92rem; padding: 9px; border: 0; border-radius: 6px; background: transparent; color: var(--encre-douce); cursor: pointer; }
 .bascule button[aria-pressed="true"] { background: var(--surface); color: var(--action); font-weight: 500; box-shadow: 0 1px 3px rgba(20, 42, 59, 0.12); }
@@ -685,8 +684,8 @@ h2.titre-mono { font-size: 1.1rem; }
 .fil-journal li::before { content: ""; position: absolute; left: 0; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--succes); }
 .fil-journal li::after { content: ""; position: absolute; left: 4px; top: 17px; bottom: 0; width: 1px; background: var(--trait-fort); }
 .fil-journal li:last-child::after { display: none; }
-.fil-journal .quand { font: 0.76rem var(--police-code); color: var(--encre-pale); }
-.fil-journal .qui { font: 500 0.88rem var(--police-code); color: var(--action); margin-top: 2px; }
+.fil-journal .quand { font: 0.76rem var(--police); font-variant-numeric: tabular-nums; color: var(--encre-pale); }
+.fil-journal .qui { font: 500 0.88rem var(--police); color: var(--action); margin-top: 2px; }
 .fil-journal .qui a { color: inherit; text-decoration: none; }
 .fil-journal .qui a:hover { text-decoration: underline; }
 .fil-journal .quoi { font-size: 0.88rem; color: var(--encre); margin-top: 2px; }
