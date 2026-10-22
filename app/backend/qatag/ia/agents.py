@@ -127,3 +127,32 @@ def consigne_conception(texte_reecrit: str, criteres: list[dict], origine: str,
                "« CT-001 : <quelle partition, quelle limite ou quelle règle de la table "
                "ce cas exerce, et pourquoi> »."]
     return "\n".join(lignes)
+
+
+def consigne_anomalie(cas, echecs: list, regles: list[dict], criteres: list[dict]) -> tuple[str, str]:
+    """AG-09 : faits d'une anomalie de recette. Renvoie (consigne, faits) ; les faits
+    servent aussi au contrôle des données personnelles."""
+    lignes = ["## Cas de test %s — %s" % (cas.code, cas.titre),
+              "- Objectif : %s" % (cas.objectif or "—"),
+              "- Exigence ou règle couverte : %s" % (cas.exigence or "—"),
+              "- Priorité du cas : %s" % (cas.priorite or "—"),
+              "- Préconditions : %s" % (cas.preconditions or "—"),
+              "- Données de test : %s" % (cas.donnees_test or "—"),
+              "- Étapes :\n%s" % (cas.etapes or "—"),
+              "- Résultat attendu : %s" % (cas.resultat_attendu or "—"), ""]
+    if regles or criteres:
+        lignes.append("## Règles et critères validés à PV-1, cités par le cas")
+        lignes += ["- %s : %s" % (r["code"], r["texte"]) for r in regles + criteres]
+        lignes.append("")
+    lignes.append("## Exécutions en échec (%d)" % len(echecs))
+    for i, e in enumerate(echecs, start=1):
+        lignes.append("- Échec %d — Résultat obtenu : %s" % (i, e.resultat_obtenu or "—"))
+        if (e.commentaire or "").strip():
+            lignes.append("  Commentaire du testeur : %s" % e.commentaire)
+    faits = "\n".join(lignes)
+    consigne = (faits + "\n\nQualifie cette anomalie selon ta grille. Réponds UNIQUEMENT "
+                "avec la section « ## Anomalie » et ses quatre lignes (Titre, Gravité, "
+                "Reproductibilité, Justification), sans rien avant ni après. "
+                + ("Une seule exécution en échec : la reproductibilité est « Non déterminée »."
+                   if len(echecs) < 2 else ""))
+    return consigne, faits

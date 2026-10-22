@@ -544,24 +544,13 @@ def modifier_cas(db: Session, u: Utilisateur, m: Mission, cas_id: int, champs: d
 STATUTS_CAHIER = ("ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE")
 
 
-def exporter_cahier_cas(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
-    """RA-46 : cahier des cas au gabarit Word DSI, sur la version courante.
-
-    Recopie fidèle des cas enregistrés ; zones d'exécution laissées vides. Avant
-    PV-2, le document est marqué « document de travail ». Chaque export est tracé
-    au journal avec l'empreinte SHA-256 du fichier remis."""
-    import hashlib
-    import os
-    import tempfile
-
-    if m.statut not in STATUTS_CAHIER:
-        raise RegleViolee("RA-46", "Le cahier des cas s'exporte une fois les cas conçus "
-                                   "(statut actuel : %s)" % m.statut)
-    v = version_courante(m)
+def lignes_cahier(db: Session, v: VersionExigence, regle: str) -> tuple[list, list[list[str]]]:
+    """Cas de la version au format du gabarit (cahier_word.py), dans l'ordre des codes.
+    Un cas dont la priorité ou le type n'a pas de case dans le gabarit bloque l'export."""
     cas = db.scalars(select(CasTest).where(CasTest.version_id == v.id)
                      .order_by(CasTest.code)).all()
     if not cas:
-        raise RegleViolee("RA-46", "Aucun cas de test à exporter")
+        raise RegleViolee(regle, "Aucun cas de test à exporter")
     cw = scripts_qa._module("cahier_word")
     lignes, invalides = [], []
     for c in cas:
@@ -576,9 +565,26 @@ def exporter_cahier_cas(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes,
                        typ or "", c.preconditions, c.donnees_test, c.etapes,
                        c.resultat_attendu, statut])
     if invalides:
-        raise RegleViolee("RA-46", "Corrigez ces cas avant l'export : chaque cas doit "
-                                   "cocher une priorité et un type du gabarit", invalides)
+        raise RegleViolee(regle, "Corrigez ces cas avant l'export : chaque cas doit "
+                                 "cocher une priorité et un type du gabarit", invalides)
+    return cas, lignes
 
+
+def exporter_cahier_cas(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
+    """RA-46 : cahier des cas au gabarit Word DSI, sur la version courante.
+
+    Recopie fidèle des cas enregistrés ; zones d'exécution laissées vides. Avant
+    PV-2, le document est marqué « document de travail ». Chaque export est tracé
+    au journal avec l'empreinte SHA-256 du fichier remis."""
+    import hashlib
+    import os
+    import tempfile
+
+    if m.statut not in STATUTS_CAHIER:
+        raise RegleViolee("RA-46", "Le cahier des cas s'exporte une fois les cas conçus "
+                                   "(statut actuel : %s)" % m.statut)
+    v = version_courante(m)
+    cas, lignes = lignes_cahier(db, v, "RA-46")
     pv2 = db.scalar(select(DecisionPorte).where(DecisionPorte.version_id == v.id,
                                                 DecisionPorte.porte == "PV-2",
                                                 DecisionPorte.decision == "APPROUVE"))

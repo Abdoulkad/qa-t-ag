@@ -135,3 +135,22 @@ class ValidationDefauts(BaseModel):
 class Requalification(BaseModel):
     gravite: str
     motif: str = Field(min_length=1)
+
+
+# --- Recette (lot 3) ---------------------------------------------------------------
+
+class QualificationAnomalie(BaseModel):
+    gravite: str
+    reproductibilite: str
+    titre: str = Field(default="", max_length=300)
+    motif: str = Field(default="", max_length=2000)
+
+
+class ActionAnomalie(BaseModel):
+    action: str
+    motif: str = Field(default="", max_length=2000)
+
+
+class ClotureEntree(BaseModel):
+    decision: str
+    commentaire: str = Field(default="", max_length=4000)

@@ -8,9 +8,10 @@ from . import journal
 from .db import session_db
 from .deps import administrateur
 from .models import Utilisateur
+from .cahier_recette import ControleEchoue
 from .regles import RegleViolee
 from .config import parametres
-from .routes import auth, config_ia, missions, utilisateurs
+from .routes import auth, config_ia, missions, recette, utilisateurs
 
 _cle = parametres().secret_key
 if _cle == "a-changer-dans-le-fichier-env" or len(_cle) < 32:
@@ -28,7 +29,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
 # --- En-têtes de sécurité (RA-53) ---------------------------------------------
 # L'interface n'utilise que ses propres fichiers : tout le reste est refusé.
 CSP_INTERFACE = ("default-src 'self'; script-src 'self'; style-src 'self'; "
-                 "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+                 "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; "
                  "object-src 'none'; base-uri 'self'; form-action 'self'; "
                  "frame-ancestors 'none'")
 # La documentation de l'API (/docs, /redoc) charge Swagger et ReDoc depuis un CDN
@@ -66,6 +67,13 @@ async def entetes_securite(request: Request, call_next):
     return reponse
 
 
+@app.exception_handler(ControleEchoue)
+def controle_echoue(_: Request, e: ControleEchoue):
+    """RA-33 : le document produit ne correspond pas à la base, il n'est pas remis."""
+    return JSONResponse(status_code=500, content={
+        "regle": "RA-33", "detail": "Cahier non remis : le contrôle de relecture a échoué (%s)" % e})
+
+
 @app.exception_handler(RegleViolee)
 def regle_violee(_: Request, e: RegleViolee):
     """Une règle métier refuse l'action : 409 avec la règle et le détail."""
@@ -73,7 +81,8 @@ def regle_violee(_: Request, e: RegleViolee):
         "regle": e.regle, "detail": e.message, "elements": e.details})
 
 
-for r in (auth.routeur, utilisateurs.routeur, config_ia.routeur, missions.routeur):
+for r in (auth.routeur, utilisateurs.routeur, config_ia.routeur, missions.routeur,
+          recette.routeur):
     app.include_router(r)
 
 
