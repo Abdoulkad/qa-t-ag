@@ -15,3 +15,7 @@ app/frontend/dist/
 
 # Cache de compilation TypeScript
 *.tsbuildinfo
+
+# Campagne d'évaluation des agents : exigences réelles, jamais dans le dépôt
+app/backend/*.xlsx
+app/evaluation/
