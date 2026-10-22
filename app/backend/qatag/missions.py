@@ -541,7 +541,7 @@ def modifier_cas(db: Session, u: Utilisateur, m: Mission, cas_id: int, champs: d
     return c
 
 
-STATUTS_CAHIER = ("ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE")
+STATUTS_CAHIER = ("ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE", "RESERVES_LEVEES")
 
 
 def lignes_cahier(db: Session, v: VersionExigence, regle: str) -> tuple[list, list[list[str]]]:

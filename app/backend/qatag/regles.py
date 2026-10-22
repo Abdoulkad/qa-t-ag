@@ -16,8 +16,9 @@ TRANSITIONS = {
     "ATTENTE_PV2": ("VALIDEE", "A_CORRIGER"),
     "VALIDEE": ("EN_RECETTE",),
     "EN_RECETTE": ("CLOTUREE",),
+    "CLOTUREE": ("RESERVES_LEVEES",),          # RA-65 : seulement après une clôture avec réserves
+    "RESERVES_LEVEES": (),
     "A_CORRIGER": ("ANALYSE_EN_COURS",),
-    "CLOTUREE": (),
 }
 
 # Porte -> (statut d'attente, statut si approuvée)

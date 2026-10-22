@@ -12,6 +12,7 @@ export const STATUT_MISSION: Record<StatutMission, { libelle: string; ton: Ton }
   VALIDEE: { libelle: "Validée", ton: "succes" },
   EN_RECETTE: { libelle: "En recette", ton: "neutre" },
   CLOTUREE: { libelle: "Clôturée", ton: "succes" },
+  RESERVES_LEVEES: { libelle: "Réserves levées", ton: "succes" },
   A_CORRIGER: { libelle: "À corriger", ton: "alerte" },
 };
 
@@ -76,6 +77,7 @@ export const EVENEMENTS: Record<string, string> = {
   anomalie_rouverte: "Anomalie rouverte après un nouvel échec",
   anomalie_fermee: "Anomalie fermée",
   recette_cloturee: "Recette clôturée",
+  reserves_levees: "Réserves levées",
   cahier_recette_exporte: "Cahier de recette exporté",
 };
 

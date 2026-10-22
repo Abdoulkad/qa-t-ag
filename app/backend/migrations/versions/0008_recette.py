@@ -16,6 +16,12 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 STATUTS = "statut IN ('OUVERTE', 'CORRIGEE', 'FERMEE', 'REJETEE')"
+MISSION_AVANT = ("statut IN ('ANALYSE_EN_COURS', 'CLARIFICATION', 'REECRITURE', 'ATTENTE_PV1', "
+                 "'CONCEPTION', 'ATTENTE_PV2', 'VALIDEE', 'EN_RECETTE', 'CLOTUREE', "
+                 "'A_CORRIGER', 'ECHEC_ANALYSE')")
+MISSION_APRES = ("statut IN ('ANALYSE_EN_COURS', 'CLARIFICATION', 'REECRITURE', 'ATTENTE_PV1', "
+                 "'CONCEPTION', 'ATTENTE_PV2', 'VALIDEE', 'EN_RECETTE', 'CLOTUREE', "
+                 "'RESERVES_LEVEES', 'A_CORRIGER', 'ECHEC_ANALYSE')")
 GRAVITES = "gravite IS NULL OR gravite IN ('Bloquante', 'Critique', 'Majeure', 'Mineure')"
 
 
@@ -58,6 +64,10 @@ def upgrade() -> None:
     op.create_check_constraint('ck_anomalie_statut', 'anomalie', STATUTS)
     op.create_check_constraint('ck_anomalie_gravite', 'anomalie', GRAVITES)
 
+    # Mission : statut « réserves levées » (RA-65)
+    op.drop_constraint('ck_mission_statut', 'mission', type_='check')
+    op.create_check_constraint('ck_mission_statut', 'mission', MISSION_APRES)
+
     # Tâche IA visant un autre objet que la version (AG-09 : une anomalie)
     op.add_column('tache_ia', sa.Column('cible_id', sa.Integer(), nullable=True))
 
@@ -70,12 +80,19 @@ def upgrade() -> None:
         sa.Column('decision', sa.String(length=30), nullable=False),
         sa.Column('commentaire', sa.Text(), nullable=False),
         sa.Column('reserves', sa.Text(), nullable=False),
+        sa.Column('cas_reserve', sa.Text(), nullable=False),
+        sa.Column('anomalies_reserve', sa.Text(), nullable=False),
         sa.Column('decideur_id', sa.Integer(), nullable=False),
         sa.Column('auto_validation', sa.Boolean(), nullable=False),
         sa.Column('decide_le', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('levee_le', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('levee_par_id', sa.Integer(), nullable=True),
+        sa.Column('levee_auto_validation', sa.Boolean(), nullable=True),
+        sa.Column('levee_commentaire', sa.Text(), nullable=True),
         sa.CheckConstraint("decision IN ('CLOTURE', 'CLOTURE_AVEC_RESERVES')",
                            name='ck_cloture_decision'),
         sa.ForeignKeyConstraint(['decideur_id'], ['utilisateur.id']),
+        sa.ForeignKeyConstraint(['levee_par_id'], ['utilisateur.id']),
         sa.ForeignKeyConstraint(['mission_id'], ['mission.id']),
         sa.ForeignKeyConstraint(['version_id'], ['version_exigence.id']),
         sa.PrimaryKeyConstraint('id'),
@@ -84,6 +101,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("UPDATE mission SET statut = 'CLOTUREE' WHERE statut = 'RESERVES_LEVEES'")
+    op.drop_constraint('ck_mission_statut', 'mission', type_='check')
+    op.create_check_constraint('ck_mission_statut', 'mission', MISSION_AVANT)
     op.drop_table('cloture_recette')
     op.drop_column('tache_ia', 'cible_id')
     op.drop_constraint('ck_anomalie_gravite', 'anomalie', type_='check')

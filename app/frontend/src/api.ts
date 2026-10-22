@@ -125,7 +125,7 @@ export interface Utilisateur {
 
 export type StatutMission =
   | "ANALYSE_EN_COURS" | "ECHEC_ANALYSE" | "CLARIFICATION" | "REECRITURE" | "ATTENTE_PV1"
-  | "CONCEPTION" | "ATTENTE_PV2" | "VALIDEE" | "EN_RECETTE" | "CLOTUREE" | "A_CORRIGER";
+  | "CONCEPTION" | "ATTENTE_PV2" | "VALIDEE" | "EN_RECETTE" | "CLOTUREE" | "RESERVES_LEVEES" | "A_CORRIGER";
 
 export interface ResumeMission {
   id: number;

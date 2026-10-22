@@ -24,7 +24,7 @@ from .models import (Anomalie, ClotureRecette, DecisionPorte, Execution, Mission
 from .recette import dernieres_executions
 from .regles import RegleViolee
 
-STATUTS_EXPORT = ("EN_RECETTE", "CLOTUREE")
+STATUTS_EXPORT = ("EN_RECETTE", "CLOTUREE", "RESERVES_LEVEES")
 # Statut en base -> libellé de la case à cocher du gabarit
 CASES = {"PASS": "PASS", "FAIL": "FAIL", "BLOCKED": "BLOQUÉ", "NOT_RUN": "NON EXÉCUTÉ"}
 LIGNE_STATUTS = "☐  PASS        ☐  FAIL        ☐  BLOQUÉ        ☐  NON EXÉCUTÉ"
@@ -149,6 +149,14 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
             " (auto-validation)" if cloture.auto_validation else "")
         if cloture.commentaire:
             etat += " Motif : %s" % cloture.commentaire
+        if cloture.levee_le:
+            etat += " Réserves levées le %s par %s%s." % (
+                cloture.levee_le.strftime("%d/%m/%Y"), _nom(db, cloture.levee_par_id),
+                " (auto-validation)" if cloture.levee_auto_validation else "")
+            if cloture.levee_commentaire:
+                etat += " %s" % cloture.levee_commentaire
+        elif cloture.decision == "CLOTURE_AVEC_RESERVES":
+            etat += " Réserves en cours de levée."
         reserves = json.loads(cloture.reserves)
     else:
         etat = "DOCUMENT DE TRAVAIL — recette en cours, non clôturée."

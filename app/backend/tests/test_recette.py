@@ -401,3 +401,90 @@ def test_preuve_jamais_dupliquee_sur_disque(client, admin, ia):
 
 def test_mission_us_test_disponible():
     assert "US-042" in US_TEST
+
+
+# --- RA-64, RA-65 : suivi et levée des réserves -----------------------------------------------
+
+def _clos_avec_reserves(client, h, mid):
+    cas = _cas(client, h, mid)
+    _echec(client, h, mid, cas["CT-001"]["id"])
+    for code in ("CT-002", "CT-003", "CT-004"):
+        _executer(client, h, mid, cas[code]["id"], "PASS", "Conforme")
+    r = _cloturer(client, h, mid, "CLOTURE_AVEC_RESERVES", "Mise en production acceptée")
+    assert r.status_code == 200, r.text
+    return cas
+
+
+def _lever(client, h, mid, commentaire=""):
+    return client.post("/api/missions/%d/recette/levee-reserves" % mid, headers=h,
+                       json={"commentaire": commentaire})
+
+
+def test_seuls_les_cas_en_reserve_restent_executables(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    cas = _clos_avec_reserves(client, admin, mid)
+    r = _executer(client, admin, mid, cas["CT-002"]["id"], "PASS", "x")
+    assert r.status_code == 409 and r.json()["regle"] == "RA-64"
+    etat = _recette(client, admin, mid)
+    assert etat["suivi_reserves"] is True
+    assert {c["code"]: c["executable"] for c in etat["cas"]} == {
+        "CT-001": True, "CT-002": False, "CT-003": False, "CT-004": False}
+
+
+def test_levee_des_reserves_apres_correction_et_nouveau_passage(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    cas = _clos_avec_reserves(client, admin, mid)
+    r = _lever(client, admin, mid)
+    assert r.status_code == 409 and r.json()["regle"] == "RA-65"
+    assert any(e.startswith("ANO-001") for e in r.json()["elements"])
+    aid = _recette(client, admin, mid)["anomalies"][0]["id"]
+    assert _action(client, admin, mid, aid, "CORRIGER", "Livraison 1.2.1").status_code == 200
+    assert _executer(client, admin, mid, cas["CT-001"]["id"], "PASS",
+                     "Message « Lien expiré »").status_code == 201
+    etat = _recette(client, admin, mid)
+    assert etat["anomalies"][0]["statut"] == "FERMEE" and etat["reserves_restantes"] == []
+    assert _lever(client, admin, mid, "Corrections vérifiées en 1.2.1").status_code == 200
+    assert _statut(client, admin, mid) == "RESERVES_LEVEES"
+    cloture = _recette(client, admin, mid)["cloture"]
+    assert cloture["decision"] == "CLOTURE_AVEC_RESERVES"              # décision inchangée
+    assert len(cloture["reserves"]) == 2 and cloture["levee"]["auto_validation"] is True
+    r = _executer(client, admin, mid, cas["CT-001"]["id"], "PASS", "x")
+    assert r.status_code == 409 and r.json()["regle"] == "RA-63"
+    texte = _texte(_cahier(client, admin, mid).content)
+    assert "Réserves levées le" in texte and "Corrections vérifiées en 1.2.1" in texte
+    with SessionLocale() as db:
+        assert db.scalar(select(EntreeJournal).where(
+            EntreeJournal.evenement == "reserves_levees")) is not None
+
+
+def test_nouvel_echec_pendant_le_suivi_rouvre_l_anomalie(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    cas = _clos_avec_reserves(client, admin, mid)
+    aid = _recette(client, admin, mid)["anomalies"][0]["id"]
+    _action(client, admin, mid, aid, "CORRIGER")
+    _echec(client, admin, mid, cas["CT-001"]["id"], "Toujours accepté")
+    assert _recette(client, admin, mid)["anomalies"][0]["statut"] == "OUVERTE"
+    assert _lever(client, admin, mid).status_code == 409
+
+
+def test_pas_de_levee_apres_une_cloture_sans_reserve(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    _tout_reussir(client, admin, mid)
+    _cloturer(client, admin, mid, "CLOTURE")
+    r = _lever(client, admin, mid)
+    assert r.status_code == 409 and r.json()["regle"] == "RA-65"
+
+
+def test_levee_reservee_au_superviseur_quand_plusieurs_participants(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    cas = _clos_avec_reserves(client, admin, mid)
+    inscrire(client, "analyste@exemple.ci")
+    client.post("/api/missions/%d/participants" % mid, json={"email": "analyste@exemple.ci"},
+                headers=admin)
+    h = entetes(client, "analyste@exemple.ci")
+    aid = _recette(client, h, mid)["anomalies"][0]["id"]
+    _action(client, h, mid, aid, "CORRIGER")
+    _executer(client, h, mid, cas["CT-001"]["id"], "PASS", "Conforme")
+    r = _lever(client, h, mid)
+    assert r.status_code == 409 and r.json()["regle"] == "RA-12"
+    assert "lever les réserves" in r.json()["detail"]

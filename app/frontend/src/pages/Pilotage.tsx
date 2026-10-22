@@ -5,9 +5,9 @@ import { MessageErreur, MiniChaine, PastilleMission, useDonnees } from "../compo
 import { date, EVENEMENTS } from "../libelles";
 
 const FILTRES: { cle: string; libelle: string; garde: (m: ResumeMission) => boolean }[] = [
-  { cle: "cours", libelle: "En cours", garde: (m) => !["VALIDEE", "CLOTUREE"].includes(m.statut) },
+  { cle: "cours", libelle: "En cours", garde: (m) => !["VALIDEE", "CLOTUREE", "RESERVES_LEVEES"].includes(m.statut) },
   { cle: "gate", libelle: "Human Gate", garde: (m) => m.statut === "ATTENTE_PV1" || m.statut === "ATTENTE_PV2" },
-  { cle: "validees", libelle: "Validées", garde: (m) => m.statut === "VALIDEE" || m.statut === "CLOTUREE" },
+  { cle: "validees", libelle: "Validées", garde: (m) => ["VALIDEE", "CLOTUREE", "RESERVES_LEVEES"].includes(m.statut) },
   { cle: "toutes", libelle: "Toutes", garde: () => true },
 ];
 

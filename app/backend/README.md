@@ -116,6 +116,9 @@ AG-09 en propose la qualification, que vous confirmez ou modifiez (motif à
 l'appui). Déclarez une anomalie corrigée à la livraison du correctif, puis
 rejouez le cas : un passage réussi la ferme. Clôturez enfin la recette, sans
 réserve ou avec réserves motivées, et exportez le cahier de recette Word.
+Après une clôture avec réserves, seuls les cas en réserve se rejouent ; quand
+ils sont tous réussis et leurs anomalies résolues, **Lever les réserves**
+termine le suivi.
 Les captures sont enregistrées dans la base : la sauvegarde les inclut.
 
 ## Sécurité

@@ -12,7 +12,7 @@ ROLES = ("ANALYSTE", "SUPERVISEUR", "ADMIN")
 
 STATUTS_MISSION = (
     "ANALYSE_EN_COURS", "CLARIFICATION", "REECRITURE", "ATTENTE_PV1",
-    "CONCEPTION", "ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE",
+    "CONCEPTION", "ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE", "RESERVES_LEVEES",
     "A_CORRIGER", "ECHEC_ANALYSE",
 )
 STATUTS_CAS = ("PRET", "INCOMPLET", "A_CLARIFIER")
@@ -356,9 +356,17 @@ class ClotureRecette(Base):
     decision: Mapped[str] = mapped_column(String(30))
     commentaire: Mapped[str] = mapped_column(Text, default="")
     reserves: Mapped[str] = mapped_column(Text, default="[]")      # JSON figé à la décision
+    # RA-64 : périmètre du suivi des réserves (identifiants des cas, codes des anomalies)
+    cas_reserve: Mapped[str] = mapped_column(Text, default="[]")
+    anomalies_reserve: Mapped[str] = mapped_column(Text, default="[]")
     decideur_id: Mapped[int] = mapped_column(ForeignKey("utilisateur.id"))
     auto_validation: Mapped[bool] = mapped_column(Boolean, default=False)
     decide_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # RA-65 : levée des réserves (décision distincte ; la clôture, elle, ne change pas)
+    levee_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    levee_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    levee_auto_validation: Mapped[bool | None] = mapped_column(Boolean)
+    levee_commentaire: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (CheckConstraint(_dans("decision", DECISIONS_CLOTURE),
                                       name="ck_cloture_decision"),)
 

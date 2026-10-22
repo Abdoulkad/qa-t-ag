@@ -299,6 +299,17 @@ régression (AG-10) viendront après l'évaluation des agents.
   réserves* : motif obligatoire ; la liste des réserves (cas non réussis,
   anomalies non résolues) est calculée par le serveur et figée dans la
   décision. Refusée s'il n'y a aucune réserve.
+- **RA-64** **Suivi des réserves.** Après une clôture avec réserves, le
+  périmètre des réserves (cas non réussis et cas des anomalies non résolues au
+  moment de la clôture) reste suivi : ces seuls cas peuvent être rejoués, et
+  leurs anomalies déclarées corrigées, rejetées ou rouvertes, selon RA-61 et
+  RA-62. Tout autre cas est refusé. La décision de clôture ne change jamais.
+- **RA-65** **Levée des réserves**, par les mêmes règles d'habilitation que la
+  clôture, quand chaque cas en réserve est réussi à son dernier passage et
+  qu'aucune de ses anomalies n'est ouverte ou corrigée (sinon la réponse liste
+  ce qui reste). La mission passe `RESERVES_LEVEES` ; la date, l'auteur et le
+  commentaire de la levée s'ajoutent à la décision de clôture et au cahier de
+  recette. Plus rien ne s'exécute ensuite.
 
 ## 7 bis. Cahier des cas de test (export Word, avant recette)
 
@@ -401,7 +412,7 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 | `journal` | Entrées chaînées en ajout seul |
 | `tache_ia` | Type, état, erreur, horodatages |
 | `config_ia` | Fournisseur et modèle actifs par organisation |
-| `cloture_recette` | Décision de clôture de la recette, avec réserves figées — RA-63 |
+| `cloture_recette` | Décision de clôture de la recette, réserves figées et leur périmètre, levée des réserves — RA-63 à RA-65 |
 | `tentative_connexion` | Tentatives de connexion (e-mail, adresse IP, date, succès) — RA-52 |
 
 ## 12. Traçabilité règles ↔ tests
@@ -428,7 +439,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-54 | `test_sauvegarde.py` | S1 |
 | RA-55 à RA-58 | `test_mots_de_passe.py` | S2 |
 | (extraction PDF, garde-fou des mises à jour) | `test_extraction.py` | S1 |
-| RA-27 à RA-33, RA-59 à RA-63 | `test_recette.py` | 3 |
+| RA-27 à RA-33, RA-59 à RA-65 | `test_recette.py` | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un
 déclencheur PostgreSQL refuse `UPDATE`, `DELETE` et `TRUNCATE` sur la table.

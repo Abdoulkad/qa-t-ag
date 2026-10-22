@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import missions as svc
+from .. import recette as recette_svc
 from ..db import session_db
 from ..deps import acteur_mission, utilisateur_courant
 from ..extraction import FichierRefuse, extraire
@@ -73,9 +74,14 @@ def _situation(db: Session, m: Mission, v: VersionExigence) -> dict:
                                          if n_bloquants else "")
     elif m.statut == "EN_RECETTE":
         action = _avancement_recette(db, m, v)
+    elif m.statut == "CLOTUREE" and recette_svc.suivi_reserves(db, m) is not None:
+        n = len(recette_svc.reserves_restantes(db, m))
+        action = ("Lever les réserves" if n == 0 else
+                  "Réserves à lever : %d point%s ouvert%s" % (n, "s" * (n > 1), "s" * (n > 1)))
     else:
         action = {"VALIDEE": "Prête pour la recette", "A_CORRIGER": "Corriger et resoumettre",
-                  "CLOTUREE": "Clôturée"}.get(m.statut, "—")
+                  "CLOTUREE": "Clôturée", "RESERVES_LEVEES": "Clôturée · réserves levées"
+                  }.get(m.statut, "—")
     return {"prochaine_action": action, "questions_bloquantes": bloquantes, "en_echec": echec,
             "occupe": occupe, "bloquants": n_bloquants,
             "cas": {"total": sum(compte.values()), "prets": compte.get("PRET", 0)}}

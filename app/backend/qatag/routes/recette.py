@@ -13,7 +13,7 @@ from ..missions import version_courante
 from ..models import (Anomalie, CasTest, ClotureRecette, Execution, Preuve, Utilisateur)
 from ..regles import LIBELLES_TEST, TAILLE_PREUVE_MAX
 from .missions import _mission, _refs
-from .schemas import ActionAnomalie, ClotureEntree, QualificationAnomalie
+from .schemas import ActionAnomalie, ClotureEntree, LeveeReserves, QualificationAnomalie
 
 routeur = APIRouter(prefix="/api", tags=["Recette"])
 
@@ -25,8 +25,9 @@ def _personne(db: Session, uid: int | None) -> dict | None:
     return {"id": p.id, "nom": p.nom, "email": p.email} if p else None
 
 
-def _anomalie(db: Session, a: Anomalie, codes_cas: dict[int, str]) -> dict:
+def _anomalie(db: Session, a: Anomalie, codes_cas: dict[int, str], modifiable: bool) -> dict:
     return {
+        "modifiable": modifiable and a.statut != "FERMEE",
         "id": a.id, "code": a.code, "cas_id": a.cas_id, "cas": codes_cas.get(a.cas_id),
         "execution_id": a.execution_id, "titre": a.titre, "description": a.description,
         "gravite": a.gravite, "reproductibilite": a.reproductibilite, "statut": a.statut,
@@ -67,6 +68,13 @@ def etat_recette(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
         if a.statut in ("OUVERTE", "CORRIGEE"):
             ouvertes_par_cas.setdefault(a.cas_id, []).append(a.code)
 
+    suivi = svc.suivi_reserves(db, m)
+    en_reserve = svc.cas_en_reserve(suivi)
+    ouverte = m.statut in svc.STATUTS_RECETTE
+
+    def autorise(cas_id: int) -> bool:          # même règle que le serveur (RA-27, RA-64)
+        return ouverte or cas_id in en_reserve
+
     compte = {"PASS": 0, "FAIL": 0, "BLOCKED": 0, "NOT_RUN": 0, "A_EXECUTER": 0}
     lignes = []
     for c in cas:
@@ -79,6 +87,7 @@ def etat_recette(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
             "type": c.type, "preconditions": c.preconditions, "donnees_test": c.donnees_test,
             "etapes": c.etapes, "resultat_attendu": c.resultat_attendu, "statut_cas": c.statut,
             "statut": dernier.statut if dernier else None,
+            "executable": autorise(c.id), "en_reserve": c.id in en_reserve,
             "anomalies_ouvertes": ouvertes_par_cas.get(c.id, []),
             "executions": [{
                 "id": e.id, "passage": i, "statut": e.statut,
@@ -92,19 +101,25 @@ def etat_recette(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
     cloture = db.scalar(select(ClotureRecette).where(ClotureRecette.mission_id == m.id))
     return {
         "statut_mission": m.statut,
-        "ouverte": m.statut in svc.STATUTS_RECETTE,
+        "ouverte": ouverte,
+        "suivi_reserves": suivi is not None,
+        "reserves_restantes": svc.reserves_restantes(db, m) if suivi else [],
         "ia_configuree": svc.ia_configuree(db, m.organisation_id),
         "compteurs": {**compte, "total": len(cas),
                       "anomalies_ouvertes": sum(1 for a in anomalies
                                                 if a.statut in ("OUVERTE", "CORRIGEE"))},
         "cas": lignes,
-        "anomalies": [_anomalie(db, a, codes) for a in anomalies],
+        "anomalies": [_anomalie(db, a, codes, autorise(a.cas_id)) for a in anomalies],
         "reserves": svc.reserves(db, m) if m.statut == "EN_RECETTE" else [],
         "cloture": ({"decision": cloture.decision, "commentaire": cloture.commentaire,
                      "reserves": json.loads(cloture.reserves),
                      "decideur": _personne(db, cloture.decideur_id),
                      "auto_validation": cloture.auto_validation,
-                     "decide_le": cloture.decide_le} if cloture else None),
+                     "decide_le": cloture.decide_le,
+                     "levee": ({"le": cloture.levee_le, "par": _personne(db, cloture.levee_par_id),
+                                "auto_validation": cloture.levee_auto_validation,
+                                "commentaire": cloture.levee_commentaire}
+                               if cloture.levee_le else None)} if cloture else None),
     }
 
 
@@ -171,6 +186,15 @@ def cloturer(mission_id: int, entree: ClotureEntree, u: Utilisateur = Depends(ac
     m = _mission(db, u, mission_id)
     d = svc.cloturer(db, u, m, entree.decision, entree.commentaire)
     return {"decision": d.decision, "reserves": json.loads(d.reserves)}
+
+
+@routeur.post("/missions/{mission_id}/recette/levee-reserves")
+def lever_reserves(mission_id: int, entree: LeveeReserves, u: Utilisateur = Depends(acteur_mission),
+                   db: Session = Depends(session_db)):
+    """RA-65 : levée des réserves d'une recette clôturée avec réserves."""
+    m = _mission(db, u, mission_id)
+    d = svc.lever_reserves(db, u, m, entree.commentaire)
+    return {"levee_le": d.levee_le}
 
 
 @routeur.get("/missions/{mission_id}/cahier-recette")

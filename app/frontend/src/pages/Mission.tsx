@@ -32,7 +32,7 @@ function etapeParDefaut(m: Mission, v: Version): Etape {
     case "CLARIFICATION": return v.defauts.some((d) => !d.validation) ? "analyser" : "clarifier";
     case "REECRITURE": case "ATTENTE_PV1": return "reecrire";
     case "A_CORRIGER": return v.texte_reecrit ? "reecrire" : "analyser";
-    case "VALIDEE": case "EN_RECETTE": case "CLOTUREE": return "recette";
+    case "VALIDEE": case "EN_RECETTE": case "CLOTUREE": case "RESERVES_LEVEES": return "recette";
     default: return "concevoir";
   }
 }
@@ -146,7 +146,7 @@ function Parcours({ mission: m, version: v, active, choisir }: {
   mission: Mission; version: Version; active: Vue; choisir: (e: Etape) => void;
 }) {
   const phase = ({ ANALYSE_EN_COURS: 0, ECHEC_ANALYSE: 0, CLARIFICATION: 1, REECRITURE: 2, ATTENTE_PV1: 2,
-    CONCEPTION: 3, ATTENTE_PV2: 3, VALIDEE: 4, EN_RECETTE: 4, CLOTUREE: 5, A_CORRIGER: -1 } as Record<string, number>)[m.statut] ?? -1;
+    CONCEPTION: 3, ATTENTE_PV2: 3, VALIDEE: 4, EN_RECETTE: 4, CLOTUREE: 5, RESERVES_LEVEES: 5, A_CORRIGER: -1 } as Record<string, number>)[m.statut] ?? -1;
   const decision = (p: string) => v.decisions.find((d) => d.porte === p);
   const examines = v.defauts.filter((d) => d.validation).length;
   const traitees = v.questions.filter(traitee).length;
@@ -162,7 +162,8 @@ function Parcours({ mission: m, version: v, active, choisir }: {
       detail: m.cas.total ? `${m.cas.total} cas · ${m.cas.prets} prêts` : "Cas de test" },
     { cle: "recette", nom: "Recette", dispo: phase >= 4,
       detail: m.statut === "EN_RECETTE" ? m.prochaine_action.replace("Recette : ", "")
-        : m.statut === "CLOTUREE" ? "Clôturée" : "Exécution des cas" },
+        : m.statut === "CLOTUREE" ? m.prochaine_action
+        : m.statut === "RESERVES_LEVEES" ? "Clôturée · réserves levées" : "Exécution des cas" },
   ];
   const porte = (nom: "PV-1" | "PV-2", attente: number) => {
     const d = decision(nom);

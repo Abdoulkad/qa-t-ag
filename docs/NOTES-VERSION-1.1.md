@@ -26,6 +26,9 @@ Principe inchangé : **le script calcule · l'agent analyse · l'humain arbitre.
   rouverte avec motif.
 - **Clôture** sans réserve, ou avec réserves motivées et figées ; mêmes règles
   d'habilitation que les Human Gates.
+- **Suivi et levée des réserves** : après une clôture avec réserves, les seuls
+  cas en réserve restent rejouables et leurs anomalies suivies ; la levée des
+  réserves est une décision distincte (statut « Réserves levées »).
 - **Cahier de recette Word** au gabarit DSI : zones d'exécution remplies,
   captures, synthèse ; relu et comparé à la base avant d'être remis (RA-33).
 
@@ -38,8 +41,8 @@ sessions fermées après un changement de mot de passe.
 
 ## Règles et tests
 
-- Règles RA-01 à RA-63 dans `docs/specifications.md`, reliées à leurs tests (§ 12).
-- 199 tests automatiques côté serveur.
+- Règles RA-01 à RA-65 dans `docs/specifications.md`, reliées à leurs tests (§ 12).
+- 204 tests automatiques côté serveur.
 - Migrations 0001 à 0008, applicables sur une base existante.
 
 ## Mettre à jour
@@ -52,8 +55,6 @@ redémarrer le serveur.
 
 - **Exécution automatique (AG-08) et régression (AG-10)** : prévues après
   l'évaluation des agents, sur un environnement de recette isolé.
-- Après la clôture, les anomalies restées ouvertes ne changent plus de statut :
-  elles sont suivies comme réserves dans la décision et le cahier.
 - **Confidentialité** : avec un fournisseur d'IA en ligne, le texte des
   exigences et des anomalies quitte le poste. Pour des données réelles,
   privilégier Ollama (local) ou anonymiser.

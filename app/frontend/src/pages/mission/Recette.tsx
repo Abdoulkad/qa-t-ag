@@ -17,9 +17,11 @@ interface CasR {
   id: number; code: string; titre: string; objectif: string; exigence: string; references: string[];
   priorite: string; type: string; preconditions: string; donnees_test: string; etapes: string;
   resultat_attendu: string; statut_cas: string; statut: string | null;
+  executable: boolean; en_reserve: boolean;
   anomalies_ouvertes: string[]; executions: ExecutionR[];
 }
 interface AnomalieR {
+  modifiable: boolean;
   id: number; code: string; cas_id: number; cas: string; titre: string; description: string;
   gravite: string | null; reproductibilite: string | null; statut: string; motif_statut: string | null;
   agent: { etat: string | null; gravite: string | null; reproductibilite: string | null;
@@ -29,9 +31,11 @@ interface AnomalieR {
 }
 interface EtatRecette {
   statut_mission: string; ouverte: boolean; ia_configuree: boolean;
+  suivi_reserves: boolean; reserves_restantes: string[];
   compteurs: Record<string, number>; cas: CasR[]; anomalies: AnomalieR[]; reserves: string[];
   cloture: { decision: string; commentaire: string; reserves: string[]; decideur: Personne;
-    auto_validation: boolean; decide_le: string } | null;
+    auto_validation: boolean; decide_le: string;
+    levee: { le: string; par: Personne; auto_validation: boolean; commentaire: string | null } | null } | null;
 }
 
 const nom = (p: Personne | null) => (p ? p.nom || p.email : "—");
@@ -107,6 +111,7 @@ export default function Recette({ mission: m, recharger }: { mission: Mission; r
                 return (
                   <tr key={x.id} className="cliquable" onClick={() => setOuvert(x.id)}>
                     <td><span className="ref">{x.code}</span> {x.titre}
+                      {r.suivi_reserves && x.en_reserve && <> <Pastille ton="attente">En réserve</Pastille></>}
                       <div className="sous">{x.references.join(" · ")}</div></td>
                     <td>{x.priorite}</td>
                     <td>{dernier
@@ -127,7 +132,7 @@ export default function Recette({ mission: m, recharger }: { mission: Mission; r
       <Cloture mission={m} recette={r} apres={toutRelire} />
 
       {casOuvert && (
-        <VoletExecution mission={m} cas={casOuvert} ouverte={r.ouverte} fermer={() => setOuvert(null)}
+        <VoletExecution mission={m} cas={casOuvert} ouverte={casOuvert.executable} suivi={r.suivi_reserves} fermer={() => setOuvert(null)}
                         apres={toutRelire} />
       )}
     </>
@@ -136,8 +141,8 @@ export default function Recette({ mission: m, recharger }: { mission: Mission; r
 
 // --- Exécution d'un cas ------------------------------------------------------------------
 
-function VoletExecution({ mission: m, cas, ouverte, fermer, apres }: {
-  mission: Mission; cas: CasR; ouverte: boolean; fermer: () => void; apres: () => void;
+function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
+  mission: Mission; cas: CasR; ouverte: boolean; suivi: boolean; fermer: () => void; apres: () => void;
 }) {
   const [statut, setStatut] = useState("");
   const [obtenu, setObtenu] = useState("");
@@ -227,7 +232,9 @@ function VoletExecution({ mission: m, cas, ouverte, fermer, apres }: {
           </button></div>
         </form>
       ) : (
-        <p className="discret-texte">La recette n'est pas ouverte à l'exécution (clôturée ou avant PV-2).</p>
+        <p className="discret-texte">{suivi
+          ? "Recette clôturée : seuls les cas en réserve peuvent encore être rejoués. Ce cas n'en fait pas partie."
+          : "La recette n'est pas ouverte à l'exécution (clôturée ou avant PV-2)."}</p>
       )}
 
       {cas.executions.length > 0 && (
@@ -283,7 +290,7 @@ function Anomalies({ mission: m, recette: r, apres }: { mission: Mission; recett
   }
   return (
     <div className="panneau-corps pile">
-      {r.anomalies.map((a) => <CarteAnomalie key={a.id} mission={m} a={a} ouverte={r.ouverte} iaConfiguree={r.ia_configuree} apres={apres} />)}
+      {r.anomalies.map((a) => <CarteAnomalie key={a.id} mission={m} a={a} ouverte={a.modifiable} iaConfiguree={r.ia_configuree} apres={apres} />)}
     </div>
   );
 }
@@ -423,14 +430,50 @@ function Cloture({ mission: m, recette: r, apres }: { mission: Mission; recette:
   const action = useAction();
   if (r.cloture) {
     const d = r.cloture;
+    const lever = () => action.lancer(async () => {
+      await api(`/missions/${m.id}/recette/levee-reserves`, { methode: "POST", corps: { commentaire } });
+      setCommentaire("");
+      apres();
+    });
     return (
-      <div className="panneau-corps">
-        <div className={d.decision === "CLOTURE" ? "message-info" : "message-erreur"} style={{ color: "var(--encre)" }}>
+      <div className="panneau-corps pile">
+        <div className={d.decision === "CLOTURE" || d.levee ? "message-info" : "message-erreur"} style={{ color: "var(--encre)" }}>
           <strong>Recette clôturée {d.decision === "CLOTURE" ? "sans réserve" : "avec réserves"}</strong> le {date(d.decide_le)} par {nom(d.decideur)}
           {d.auto_validation && " (acteur unique de la mission)"}.
           {d.commentaire && <div>« {d.commentaire} »</div>}
-          {d.reserves.length > 0 && <ul style={{ margin: "6px 0 0" }}>{d.reserves.map((x) => <li key={x}>{x}</li>)}</ul>}
+          {d.reserves.length > 0 && <>
+            <div style={{ marginTop: 6 }}>Réserves enregistrées à la clôture :</div>
+            <ul style={{ margin: "2px 0 0" }}>{d.reserves.map((x) => <li key={x}>{x}</li>)}</ul>
+          </>}
+          {d.levee && (
+            <div style={{ marginTop: 8 }}><strong>Réserves levées</strong> le {date(d.levee.le)} par {nom(d.levee.par)}
+              {d.levee.auto_validation && " (acteur unique de la mission)"}.
+              {d.levee.commentaire && <> « {d.levee.commentaire} »</>}</div>
+          )}
         </div>
+        {r.suivi_reserves && (
+          <section className="pile cloture" aria-labelledby="titre-levee" style={{ paddingTop: 12 }}>
+            <h3 id="titre-levee" style={{ margin: 0 }}>Lever les réserves</h3>
+            <p className="discret-texte">
+              Seuls les cas en réserve peuvent encore être rejoués, et leurs anomalies déclarées corrigées, rejetées
+              ou rouvertes. La décision de clôture ci-dessus ne change pas.
+            </p>
+            {r.reserves_restantes.length > 0
+              ? <>
+                  <div className="discret-texte">{r.reserves_restantes.length} point{r.reserves_restantes.length > 1 ? "s restent" : " reste"} à lever :</div>
+                  <ul className="reserves">{r.reserves_restantes.map((x) => <li key={x}>{x}</li>)}</ul>
+                </>
+              : <div className="message-info">Tous les cas en réserve sont réussis et leurs anomalies résolues : les réserves peuvent être levées.</div>}
+            <div className="champ">
+              <label htmlFor="commentaire-levee">Commentaire (facultatif)</label>
+              <input id="commentaire-levee" type="text" value={commentaire} onChange={(e) => setCommentaire(e.target.value)}
+                     placeholder="Ex. : corrections vérifiées en version 1.2.1" />
+            </div>
+            <MessageErreur erreur={action.erreur} />
+            <div><button className="bouton principal" disabled={action.enCours || r.reserves_restantes.length > 0}
+                         onClick={lever}>Lever les réserves</button></div>
+          </section>
+        )}
       </div>
     );
   }

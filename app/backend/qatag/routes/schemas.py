@@ -154,3 +154,7 @@ class ActionAnomalie(BaseModel):
 class ClotureEntree(BaseModel):
     decision: str
     commentaire: str = Field(default="", max_length=4000)
+
+
+class LeveeReserves(BaseModel):
+    commentaire: str = Field(default="", max_length=4000)
