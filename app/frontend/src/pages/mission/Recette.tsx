@@ -149,7 +149,9 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
   const [commentaire, setCommentaire] = useState("");
   const [captures, setCaptures] = useState<File[]>([]);
   const action = useAction();
-  const apercus = useMemo(() => captures.map((f) => URL.createObjectURL(f)), [captures]);
+  // Aperçus locaux : uniquement des adresses blob: créées ici, jamais un nom de fichier
+  const apercus = useMemo(() => captures.map((f) => URL.createObjectURL(f))
+    .map((u) => (u.startsWith("blob:") ? u : "")), [captures]);
   useEffect(() => () => apercus.forEach((u) => URL.revokeObjectURL(u)), [apercus]);
 
   const ajouter = (fichiers: FileList | File[] | null) => {
@@ -218,8 +220,8 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             {captures.length > 0 && (
               <div className="vignettes">
                 {apercus.map((u, i) => (
-                  <figure key={u}>
-                    <img src={u} alt={`Capture ${i + 1} à envoyer`} />
+                  <figure key={i}>
+                    {u.startsWith("blob:") && <img src={u} alt={`Capture ${i + 1} à envoyer`} />}
                     <button type="button" className="lien" onClick={() => setCaptures(captures.filter((_, j) => j !== i))}>Retirer</button>
                   </figure>
                 ))}
