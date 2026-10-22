@@ -79,6 +79,11 @@ export const EVENEMENTS: Record<string, string> = {
   recette_cloturee: "Recette clôturée",
   reserves_levees: "Réserves levées",
   cahier_recette_exporte: "Cahier de recette exporté",
+  rapport_redaction_lancee: "Rédaction du rapport demandée à AG-11",
+  rapport_propose: "Rapport proposé par AG-11",
+  rapport_echec: "Rédaction AG-11 en échec",
+  rapport_modifie: "Rapport modifié",
+  rapport_valide: "Rapport validé",
 };
 
 /** Statuts d'exécution (codes canoniques de statuts.py). */

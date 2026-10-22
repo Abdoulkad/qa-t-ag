@@ -158,3 +158,13 @@ class ClotureEntree(BaseModel):
 
 class LeveeReserves(BaseModel):
     commentaire: str = Field(default="", max_length=4000)
+
+
+class RedactionRapport(BaseModel):
+    contexte: str = Field(default="", max_length=6000)
+    objectifs: list[str] = Field(default_factory=list, max_length=8)
+    synthese: str = Field(default="", max_length=8000)
+    recommandations: dict[str, str] = Field(default_factory=dict)
+    conclusion: str = Field(default="", max_length=6000)
+    avis: str = ""
+    valider: bool = False

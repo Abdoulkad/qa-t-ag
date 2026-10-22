@@ -338,7 +338,12 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
   captures, testeur et date, commentaire et anomalies), **Récapitulatif**
   (une ligne par cas : objectif, attendu, obtenu, impact, observations ; le
   porteur de l'action reste à renseigner) et **Conclusion** (compteurs,
-  anomalies, décision de clôture, réserves et leur levée). Avant la clôture,
+  anomalies, décision de clôture, réserves et leur levée). Le récapitulatif
+  s'ouvre sur la phrase « Sur les N cas de test, N ont été exécutés » et un
+  tableau de comptage (succès, échec, non testable, non exécuté, total, avec
+  les pourcentages) ; une section **Synthèse** précède la conclusion. Les
+  parties rédigées validées (RA-66 à RA-68) complètent le contexte, les
+  objectifs, les observations, la synthèse et la conclusion. Avant la clôture,
   il porte « DOCUMENT DE TRAVAIL » et son nom se termine par `_brouillon`.
 - **RA-33** Après génération, un contrôle relit le fichier produit et vérifie
   que chaque cas et chaque statut coché correspondent à la base, que le
@@ -346,6 +351,30 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
   qu'aucune zone du gabarit n'est restée vide *(retour testeur : cohérence entre statuts de recette et
   export Word)*. En cas d'écart, le fichier n'est pas remis. L'empreinte du
   fichier remis est inscrite au journal.
+
+## 8 bis. Rapport de test rédigé (AG-11)
+
+- **RA-66** **AG-11** rédige, sur demande et en tâche de fond, les parties
+  d'interprétation du rapport de test : contexte, objectifs (huit au plus),
+  synthèse, recommandations par cas, conclusion et avis sur la mise en
+  production (*Favorable*, *Favorable avec réserves*, *Défavorable*). Il ne
+  reçoit que les faits enregistrés (exigence réécrite, règles et critères,
+  compteurs, cas, anomalies qualifiées, clôture). Sa réponse est contrôlée
+  par `controler_rapport.py` : sections et format, références existantes
+  (CT, ANO, CA, RG), nombres de cas et d'anomalies et pourcentages égaux aux
+  compteurs réels, avis *Favorable* seulement si tous les cas sont réussis
+  et aucune anomalie ouverte ou corrigée, pas de donnée personnelle. Possible
+  dès qu'un cas est exécuté ; sans IA, l'humain rédige seul.
+- **RA-67** Le texte proposé n'entre pas dans le cahier tel quel : l'humain le
+  corrige et le **valide**. Son texte passe le même contrôle que celui
+  d'AG-11. Toute modification, et toute nouvelle rédaction par AG-11, annule
+  la validation. Proposition, modification et validation sont inscrites au
+  journal.
+- **RA-68** À l'export, le texte validé est recontrôlé contre les résultats
+  du moment ; s'il ne leur correspond plus (nouveau passage, anomalie fermée),
+  le cahier n'est pas remis et l'onglet Rapport indique quoi corriger. Sans
+  rapport validé, le cahier garde ses parties factuelles. Le cahier précise
+  si les parties rédigées ont été proposées par AG-11 et qui les a validées.
 
 ## 9. Journal QA
 
@@ -418,6 +447,7 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 | `journal` | Entrées chaînées en ajout seul |
 | `tache_ia` | Type, état, erreur, horodatages |
 | `config_ia` | Fournisseur et modèle actifs par organisation |
+| `rapport_recette` | Parties rédigées du rapport de test : proposition d'AG-11, texte retenu, validation — RA-66 à RA-68 |
 | `cloture_recette` | Décision de clôture de la recette, réserves figées et leur périmètre, levée des réserves — RA-63 à RA-65 |
 | `tentative_connexion` | Tentatives de connexion (e-mail, adresse IP, date, succès) — RA-52 |
 
@@ -446,6 +476,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-55 à RA-58 | `test_mots_de_passe.py` | S2 |
 | (extraction PDF, garde-fou des mises à jour) | `test_extraction.py` | S1 |
 | RA-27 à RA-33, RA-59 à RA-65 | `test_recette.py` | 3 |
+| RA-66 à RA-68 | `test_rapport.py` | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un
 déclencheur PostgreSQL refuse `UPDATE`, `DELETE` et `TRUNCATE` sur la table.

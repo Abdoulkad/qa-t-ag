@@ -117,6 +117,10 @@ AG-09 en propose la qualification, que vous confirmez ou modifiez (motif à
 l'appui). Déclarez une anomalie corrigée à la livraison du correctif, puis
 rejouez le cas : un passage réussi la ferme. Clôturez enfin la recette, sans
 réserve ou avec réserves motivées, et exportez le cahier de recette Word.
+L'onglet **Rapport** rédige les parties d'interprétation du cahier
+(contexte, objectifs, synthèse, recommandations, conclusion, avis) : faites-
+les proposer par l'agent AG-11, corrigez-les, puis validez-les ; seul le
+texte validé entre dans le cahier.
 Après une clôture avec réserves, seuls les cas en réserve se rejouent ; quand
 ils sont tous réussis et leurs anomalies résolues, **Lever les réserves**
 termine le suivi.

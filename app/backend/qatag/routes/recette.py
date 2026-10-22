@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import select
 from sqlalchemy.orm import Session, undefer
 
+from .. import rapport as rapport_svc
 from .. import recette as svc
 from ..db import session_db
 from ..deps import acteur_mission, utilisateur_courant
@@ -13,7 +14,8 @@ from ..missions import version_courante
 from ..models import (Anomalie, CasTest, ClotureRecette, Execution, Preuve, Utilisateur)
 from ..regles import LIBELLES_TEST, TAILLE_PREUVE_MAX
 from .missions import _mission, _refs
-from .schemas import ActionAnomalie, ClotureEntree, LeveeReserves, QualificationAnomalie
+from .schemas import (ActionAnomalie, ClotureEntree, LeveeReserves, QualificationAnomalie,
+                      RedactionRapport)
 
 routeur = APIRouter(prefix="/api", tags=["Recette"])
 
@@ -111,6 +113,7 @@ def etat_recette(mission_id: int, u: Utilisateur = Depends(utilisateur_courant),
         "cas": lignes,
         "anomalies": [_anomalie(db, a, codes, autorise(a.cas_id)) for a in anomalies],
         "reserves": svc.reserves(db, m) if m.statut == "EN_RECETTE" else [],
+        "rapport": rapport_svc.etat(db, m),
         "cloture": ({"decision": cloture.decision, "commentaire": cloture.commentaire,
                      "reserves": json.loads(cloture.reserves),
                      "decideur": _personne(db, cloture.decideur_id),
@@ -195,6 +198,24 @@ def lever_reserves(mission_id: int, entree: LeveeReserves, u: Utilisateur = Depe
     m = _mission(db, u, mission_id)
     d = svc.lever_reserves(db, u, m, entree.commentaire)
     return {"levee_le": d.levee_le}
+
+
+@routeur.post("/missions/{mission_id}/recette/rapport/redaction", status_code=202)
+def rediger_rapport(mission_id: int, u: Utilisateur = Depends(acteur_mission),
+                    db: Session = Depends(session_db)):
+    """RA-66 : AG-11 rédige les parties d'interprétation du rapport de test."""
+    tache = rapport_svc.lancer_redaction(db, u, _mission(db, u, mission_id))
+    return {"tache_id": tache.id}
+
+
+@routeur.put("/missions/{mission_id}/recette/rapport")
+def enregistrer_rapport(mission_id: int, entree: RedactionRapport,
+                        u: Utilisateur = Depends(acteur_mission),
+                        db: Session = Depends(session_db)):
+    """RA-67 : texte corrigé par l'humain, enregistré et éventuellement validé."""
+    m = _mission(db, u, mission_id)
+    r = rapport_svc.enregistrer(db, u, m, entree.model_dump(exclude={"valider"}), entree.valider)
+    return {"valide": r.valide_le is not None}
 
 
 @routeur.get("/missions/{mission_id}/cahier-recette")

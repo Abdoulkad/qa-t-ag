@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, undefer
 
 from . import journal
+from . import rapport as rapport_svc
 from .config import parametres
 from .missions import lignes_cahier, version_courante
 from .models import (Anomalie, ClotureRecette, CritereAcceptation, DecisionPorte, Execution,
@@ -135,6 +136,20 @@ def _statut_coche(table) -> str | None:
     return coches[0] if len(coches) == 1 else None
 
 
+NOMBRES = ("zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
+           "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept",
+           "dix-huit", "dix-neuf", "vingt")
+
+
+def _en_lettres(n: int) -> str:
+    return NOMBRES[n] if 0 <= n < len(NOMBRES) else str(n)
+
+
+def _part(n: int, total: int) -> str:
+    """« 03 (75 %) », comme dans les rapports de test de la DSI."""
+    return "%02d (%d %%)" % (n, round(100 * n / total)) if total else "00"
+
+
 def _recapitulatif(doc):
     for t in doc.tables:
         if len(t.columns) >= 5 and t.rows and "RESULTAT OBTENU" in t.rows[0].cells[4].text:
@@ -180,6 +195,9 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
         e = dernieres.get(c.id)
         compte[e.statut if e else "aucun"] += 1
 
+    # RA-68 : parties rédigées validées, recontrôlées contre les faits du moment
+    redaction, rapport_obj = rapport_svc.pour_export(db, m)
+
     doc = docx.Document(str(parametres().gabarit_rapport_test))
     normal = _paragraphe(doc, "Les objectifs de cette séance")
     # Titres et puces vides du gabarit : ils apparaîtraient comme des numéros sans texte.
@@ -217,16 +235,20 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
     ]
     if not cloture:
         contexte.append(("DOCUMENT DE TRAVAIL — recette en cours, non clôturée.", True))
+    if redaction:                                   # le récit d'abord, les repères ensuite
+        recit = [(x, False) for x in redaction["contexte"].split("\n") if x.strip()]
+        contexte = contexte[:1] + recit + contexte[1:]
     ancre = _paragraphe(doc, "Contexte", "Heading 1")._element
     for texte, gras in contexte:
         ancre = _apres(ancre, texte, normal, gras)._element
 
-    # Objectifs : les critères d'acceptation validés à PV-1
+    # Objectifs : ceux du rapport validé, sinon les critères d'acceptation validés à PV-1
     ancre = normal._element
-    for c in criteres or []:
-        ancre = _apres(ancre, "•  %s : %s" % (c.code, c.texte), normal)._element
-    if not criteres:
-        _apres(ancre, "•  Vérifier les cas de test validés à PV-2.", normal)
+    objectifs = (redaction["objectifs"] if redaction else
+                 ["%s : %s" % (c.code, c.texte) for c in criteres]) or \
+        ["Vérifier les cas de test validés à PV-2."]
+    for objectif in objectifs:
+        ancre = _apres(ancre, "•  %s" % objectif, normal)._element
 
     # Exécution des tests : un bloc par cas, cloné depuis le modèle du gabarit
     titre_modele = _paragraphe(doc, "[CT-XXX]")
@@ -306,8 +328,32 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
                         for a in anomalies if a.cas_id == c.id]
         _ecrire(_ligne(table, "Commentaires").cells[-1], "\n".join(commentaire) or "—")
 
-    # Récapitulatif : une ligne par cas (le porteur de l'action reste à renseigner)
+    # Récapitulatif : comptage, puis une ligne par cas (porteur de l'action à renseigner)
     recap = _recapitulatif(doc)
+    executes = compte["PASS"] + compte["FAIL"] + compte["BLOCKED"]
+    non_executes = compte["NOT_RUN"] + compte["aucun"]
+    phrase = recap._element.getprevious()
+    phrase_p = _apres(phrase, "Sur les %s (%02d) cas de test, %s (%02d) %s été exécuté%s." % (
+        _en_lettres(len(cas)), len(cas), _en_lettres(executes), executes,
+        "ont" if executes > 1 else "a", "s" if executes > 1 else ""), normal)
+    comptage = doc.add_table(rows=2, cols=6)
+    if "Table Grid" in [st.name for st in doc.styles]:
+        comptage.style = doc.styles["Table Grid"]
+    entetes = ("FONCTIONNALITÉ", "SUCCÈS", "ÉCHEC", "NON TESTABLE", "NON EXÉCUTÉ", "TOTAL")
+    valeurs = (m.titre, _part(compte["PASS"], len(cas)), _part(compte["FAIL"], len(cas)),
+               _part(compte["BLOCKED"], len(cas)), _part(non_executes, len(cas)),
+               "%02d" % len(cas))
+    for cellule, texte in zip(comptage.rows[0].cells, entetes):
+        cellule.text = ""
+        cellule.paragraphs[0].add_run(texte).bold = True
+    for cellule, texte in zip(comptage.rows[1].cells, valeurs):
+        cellule.text = texte
+    comptage.autofit = False
+    for ligne in comptage.rows:
+        for i, cellule in enumerate(ligne.cells):
+            cellule.width = Cm(7) if i == 0 else Cm(3.4)
+    phrase_p._element.addnext(comptage._tbl)
+    _apres(comptage._tbl, "", normal)
     ligne_modele = copy.deepcopy(recap.rows[1]._tr)
     for tr in [r._tr for r in recap.rows[1:]]:
         tr.getparent().remove(tr)
@@ -325,7 +371,10 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
             impact = "Aucun"
         else:
             impact = "Cas non vérifié"
-        observations = [e.commentaire] if e and e.commentaire else []
+        observations = []
+        if redaction and redaction["recommandations"].get(c.code):
+            observations.append(redaction["recommandations"][c.code])
+        observations += [e.commentaire] if e and e.commentaire else []
         observations += ["%s %s : %s" % (a.code, LIBELLES_ANOMALIE[a.statut], a.titre)
                          for a in du_cas]
         for cellule, valeur in zip(cellules, (
@@ -333,20 +382,37 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
                 impact, "\n".join(observations), "")):
             _ecrire(cellule, valeur) if valeur else _ecrire(cellule, "")
 
-    # Conclusion
-    conclusion = [
+    # Synthèse (section ajoutée avant la conclusion, comme dans les rapports de la DSI)
+    titre_conclusion = _paragraphe(doc, "Conclusion", "Heading 1")
+    titre_synthese = copy.deepcopy(titre_conclusion._element)
+    titre_conclusion._element.addprevious(titre_synthese)
+    p_synthese = Paragraph(titre_synthese, titre_conclusion._parent)
+    p_synthese.runs[0].text = "Synthèse"
+    for run in p_synthese.runs[1:]:
+        run._element.getparent().remove(run._element)
+    factuel = [
         "%d cas : %d réussi%s, %d en échec, %d non testable%s, %d non exécuté%s." % (
             len(cas), compte["PASS"], "s" * (compte["PASS"] > 1), compte["FAIL"],
             compte["BLOCKED"], "s" * (compte["BLOCKED"] > 1),
             compte["NOT_RUN"] + compte["aucun"], "s" * (compte["NOT_RUN"] + compte["aucun"] > 1)),
     ]
     if anomalies:
-        conclusion.append("%d anomalie%s : %s." % (
+        factuel.append("%d anomalie%s : %s." % (
             len(anomalies), "s" * (len(anomalies) > 1),
             " ; ".join("%s %s, %s" % (a.code, (a.gravite or "à qualifier").lower(),
                                       LIBELLES_ANOMALIE[a.statut]) for a in anomalies)))
     else:
-        conclusion.append("Aucune anomalie.")
+        factuel.append("Aucune anomalie.")
+    synthese = ([x for x in redaction["synthese"].split("\n") if x.strip()] + factuel
+                if redaction else factuel)
+    ancre = titre_synthese
+    for texte in synthese:
+        ancre = _apres(ancre, texte, normal)._element
+
+    # Conclusion : texte validé et avis, puis la décision de clôture (faits)
+    conclusion = []
+    if redaction:
+        conclusion += [x for x in redaction["conclusion"].split("\n") if x.strip()]
     if cloture:
         etat = "Recette clôturée %s le %s par %s%s." % (
             "avec réserves" if cloture.decision == "CLOTURE_AVEC_RESERVES" else "sans réserve",
@@ -369,9 +435,16 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
             conclusion.append("Réserves en cours de levée.")
     else:
         conclusion.append("Recette en cours : document de travail, non clôturée.")
-    ancre = _paragraphe(doc, "Conclusion", "Heading 1")._element
+    ancre = titre_conclusion._element
     for texte in conclusion:
         ancre = _apres(ancre, texte, normal)._element
+    if redaction:
+        ancre = _apres(ancre, "Avis sur la mise en production : %s." % redaction["avis"],
+                       normal, gras=True)._element
+        auteur = ("Parties rédigées proposées par l'agent AG-11, relues et validées par %s le %s."
+                  if rapport_obj.proposition else "Parties rédigées validées par %s le %s.")
+        _apres(ancre, auteur % (_nom(db, rapport_obj.valide_par_id),
+                                rapport_obj.valide_le.strftime("%d/%m/%Y")), normal)
 
     fd, chemin = tempfile.mkstemp(suffix=".docx")
     os.close(fd)
@@ -406,6 +479,7 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
                         "version": v.numero, "cas": len(cas), "anomalies": len(anomalies),
                         "cloturee": bool(cloture), "fichier": nom, "controle": "conforme",
                         "gabarit": "rapport de test",
+                        "rapport_redige": bool(redaction),
                         "empreinte": hashlib.sha256(contenu).hexdigest()})
     db.commit()
     return contenu, nom

@@ -411,3 +411,21 @@ class TentativeConnexion(Base):
     reussie: Mapped[bool] = mapped_column(Boolean, default=False)
     horodatage: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant,
                                                  index=True)
+
+
+class RapportRecette(Base):
+    """RA-66 à RA-68 : parties rédigées du rapport de test. AG-11 propose, l'humain
+    corrige et valide ; seul le texte validé entre dans le cahier de recette."""
+    __tablename__ = "rapport_recette"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mission_id: Mapped[int] = mapped_column(ForeignKey("mission.id"), unique=True)
+    etat_agent: Mapped[str | None] = mapped_column(String(20))       # EN_COURS, PROPOSEE, ECHEC
+    erreur_agent: Mapped[str | None] = mapped_column(Text)
+    ia: Mapped[str | None] = mapped_column(String(120))
+    proposition: Mapped[str | None] = mapped_column(Text)            # JSON, texte d'AG-11
+    propose_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    redaction: Mapped[str | None] = mapped_column(Text)              # JSON, texte retenu
+    modifie_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    modifie_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    valide_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    valide_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

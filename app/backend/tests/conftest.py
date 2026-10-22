@@ -119,6 +119,22 @@ QUALIFICATION_IA = """## Anomalie
 """
 
 
+REDACTION_IA = """## Contexte
+La campagne porte sur la réinitialisation du mot de passe : expiration du lien et longueur du nouveau mot de passe.
+## Objectifs
+- Vérifier le refus d'un lien expiré (CA-01).
+- Vérifier la longueur minimale du mot de passe (CA-02).
+## Synthèse
+Sur les quatre (04) cas de test, 4 cas ont été exécutés : 3 cas réussis (75 %) et 1 cas en échec.
+L'anomalie ANO-001 reste ouverte.
+## Recommandations
+- CT-001 : corriger ANO-001 puis rejouer le cas avant la mise en production.
+## Conclusion
+La fonctionnalité est conforme sur la longueur du mot de passe ; le refus des liens expirés reste à corriger.
+- **Avis** : Favorable avec réserves
+"""
+
+
 class IAFactice:
     """Remplace le réseau : enregistre les appels, renvoie une réponse préparée
     selon l'agent appelé (revue, réécriture ou conception)."""
@@ -126,7 +142,8 @@ class IAFactice:
     def __init__(self):
         self.appels = []
         self.reponses = {"revue": RAPPORT_IA, "reecriture": REECRITURE_IA,
-                         "conception": CONCEPTION_IA, "anomalie": QUALIFICATION_IA}
+                         "conception": CONCEPTION_IA, "anomalie": QUALIFICATION_IA,
+                         "rapport": REDACTION_IA}
         self.statut_http = 200
         self.pauses = []
         self.pannes = []      # exceptions httpx levées aux premiers appels
@@ -146,6 +163,8 @@ class IAFactice:
             return "reecriture"
         if "AG-09" in systeme:
             return "anomalie"
+        if "AG-11" in systeme:
+            return "rapport"
         if "AG-02" in systeme:
             return "conception"
         return "revue"
@@ -194,7 +213,7 @@ def schema():
 def base_vide():
     tables = ("preuve, anomalie, execution, trace, cas_test, critere_acceptation, "
               "question_metier, defaut, decision_porte, tache_ia, journal, version_exigence, "
-              "participant, cloture_recette, mission, config_ia, utilisateur, organisation, "
+              "participant, cloture_recette, rapport_recette, mission, config_ia, utilisateur, organisation, "
               "tentative_connexion")
     with moteur.begin() as c:
         # Les tests seuls contournent la protection du journal, pour repartir à vide
