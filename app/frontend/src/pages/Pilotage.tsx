@@ -156,7 +156,7 @@ export default function PilotagePage() {
       </section>
 
       <aside className="journal-qa" aria-labelledby="titre-journal">
-        <h2 id="titre-journal" className="titre-mono">
+        <h2 id="titre-journal">
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
           Journal QA
         </h2>

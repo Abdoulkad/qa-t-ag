@@ -29,7 +29,7 @@ export default function MotDePasse({ impose = false }: { impose?: boolean }) {
           aria-labelledby="titre-mdp" style={impose ? undefined : { maxWidth: 460 }}>
       {impose && <>
         <div className="connexion-surtitre">Première connexion</div>
-        <h2 id="titre-mdp" className="titre-mono">Choisissez votre mot de passe</h2>
+        <h2 id="titre-mdp">Choisissez votre mot de passe</h2>
         <p className="discret-texte" style={{ fontSize: "0.92rem" }}>
           Le mot de passe que vous avez reçu est provisoire. Remplacez-le par un mot de passe
           connu de vous seul : vos validations aux Human Gates sont signées à votre nom.

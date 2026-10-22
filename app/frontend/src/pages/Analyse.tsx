@@ -50,7 +50,7 @@ export default function Analyse() {
     <form className="pile" onSubmit={envoyer} style={{ maxWidth: 1120 }}>
       <div>
         <div className="surtitre">AG-01 · Exigences</div>
-        <h1 className="titre-mono">Analyse des exigences</h1>
+        <h1>Analyse des exigences</h1>
       </div>
 
       {sansIA && (
@@ -63,7 +63,7 @@ export default function Analyse() {
       )}
 
       <section className="panneau-exigence" aria-labelledby="titre-exigence">
-        <h2 id="titre-exigence" className="titre-mono">Exigence à analyser</h2>
+        <h2 id="titre-exigence">Exigence à analyser</h2>
         <p className="discret-texte" style={{ marginTop: 4 }}>
           SFD / User Story — deux façons de saisir : déposez un fichier ou collez le texte.
           L'agent AG-01 relève les défauts et prépare les questions métier.

@@ -53,7 +53,7 @@ export default function Connexion() {
       <section className="connexion-formulaire">
         <form className="connexion-cadre" onSubmit={envoyer} aria-labelledby="titre-connexion">
           <div className="connexion-surtitre">{mode === "connexion" ? "Bon retour" : "Bienvenue"}</div>
-          <h2 id="titre-connexion" className="titre-mono">
+          <h2 id="titre-connexion">
             {mode === "connexion" ? "Content de vous revoir" : "Créer votre compte"}
           </h2>
           <p className="discret-texte" style={{ fontSize: "0.92rem" }}>
