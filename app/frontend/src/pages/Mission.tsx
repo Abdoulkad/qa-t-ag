@@ -13,6 +13,7 @@ import { useComplementFil } from "../Cadre";
 const NOM_TACHE: Record<string, string> = {
   ANALYSE: "L'analyse (AG-01)", REECRITURE: "La réécriture", CONCEPTION: "La conception (AG-02)",
   ANOMALIE: "La qualification d'une anomalie (AG-09)",
+  RAPPORT: "La rédaction du rapport (AG-11)",
 };
 
 const LIBELLE_TACHE: Record<string, string> = {
@@ -20,6 +21,7 @@ const LIBELLE_TACHE: Record<string, string> = {
   REECRITURE: "L'agent réécrit l'exigence à partir de vos réponses",
   CONCEPTION: "L'agent AG-02 conçoit les cas de test",
   ANOMALIE: "L'agent AG-09 qualifie une anomalie",
+  RAPPORT: "L'agent AG-11 rédige le rapport de test",
 };
 
 const TRAIT = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -106,7 +108,7 @@ export default function MissionPage() {
           vous pouvez aussi la quitter.
         </div>
       )}
-      {!occupe && m.derniere_tache?.etat === "ECHEC" && m.derniere_tache.type !== "ANOMALIE" && (
+      {!occupe && m.derniere_tache?.etat === "ECHEC" && !["ANOMALIE", "RAPPORT"].includes(m.derniere_tache.type) && (
         <div className="message-erreur" role="alert">
           <strong>{NOM_TACHE[m.derniere_tache.type] ?? "L'agent"} a échoué</strong>
           {m.derniere_tache.termine_le && <> le {date(m.derniere_tache.termine_le)}</>} :{" "}

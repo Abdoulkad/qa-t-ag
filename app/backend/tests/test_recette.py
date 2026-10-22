@@ -30,7 +30,11 @@ def _mission_validee(client, admin, ia):
     return mid
 
 
-def _executer(client, h, mid, cas_id, statut, obtenu="", commentaire="", captures=()):
+def _executer(client, h, mid, cas_id, statut, obtenu="", commentaire="", captures=None):
+    """Une réussite reçoit par défaut une capture (RA-59) ; captures=[] pour n'en
+    joindre aucune."""
+    if captures is None:
+        captures = [("ecran-ok.png", png((30, 160, 60)))] if statut == "PASS" else []
     fichiers = [("captures", (nom, contenu, "image/png")) for nom, contenu in captures]
     return client.post("/api/missions/%d/cas/%d/executions" % (mid, cas_id), headers=h,
                        data={"statut": statut, "resultat_obtenu": obtenu,
@@ -86,6 +90,14 @@ def test_echec_exige_une_capture(client, admin, ia):
     r = _executer(client, admin, mid, _cas(client, admin, mid)["CT-001"]["id"], "FAIL",
                   "Formulaire affiché")
     assert r.status_code == 409 and r.json()["regle"] == "RA-59"
+
+
+def test_reussite_exige_aussi_une_capture(client, admin, ia):
+    mid = _mission_validee(client, admin, ia)
+    r = _executer(client, admin, mid, _cas(client, admin, mid)["CT-001"]["id"], "PASS",
+                  "Message « Lien expiré »", captures=[])
+    assert r.status_code == 409 and r.json()["regle"] == "RA-59"
+    assert "capture" in r.json()["detail"]
 
 
 def test_non_testable_exige_un_commentaire(client, admin, ia):
@@ -357,11 +369,19 @@ def test_cahier_brouillon_depuis_la_base(client, admin, ia):
     assert r.status_code == 200, r.text
     assert "_brouillon" in r.headers["content-disposition"]
     texte = _texte(r.content)
-    assert "CAHIER DE RECETTE" in texte and "DOCUMENT DE TRAVAIL" in texte
-    assert "Synthèse de la recette" in texte and "ANO-001" in texte
+    assert "rapport de test de la fonctionnalité « US-042 »" in texte and "DOCUMENT DE TRAVAIL" in texte
+    assert "Références : mission M-001, version 1" in texte
+    assert "Récapitulatif du test et recommandations" in texte and "ANO-001" in texte
     assert "☒  FAIL" in texte and "☒  PASS" in texte and "☒  NON EXÉCUTÉ" in texte
+    assert "[CT-XXX]" not in texte and "[Décrire" not in texte      # gabarit entièrement rempli
+    assert "CA-01 :" in texte                                       # objectifs = critères PV-1
     d = docx.Document(io.BytesIO(r.content))
-    assert len(d.inline_shapes) == 1                       # la capture de l'échec
+    assert len(d.inline_shapes) == 2                       # les captures des deux passages
+    recap = d.tables[-1]
+    assert [row.cells[1].text.split(" : ")[0] for row in recap.rows[1:]] == [
+        "CT-001", "CT-002", "CT-003", "CT-004"]
+    assert recap.rows[1].cells[5].text.startswith("ANO-001")       # impact du résultat
+    assert recap.rows[2].cells[5].text == "Aucun"
 
 
 def test_cahier_apres_cloture_et_journal(client, admin, ia):
@@ -371,7 +391,7 @@ def test_cahier_apres_cloture_et_journal(client, admin, ia):
     _cloturer(client, admin, mid, "CLOTURE")
     r = _cahier(client, admin, mid)
     assert "_brouillon" not in r.headers["content-disposition"]
-    assert "Recette clôturée sans réserve" in _texte(r.content)
+    assert "La recette a été clôturée sans réserve" in _texte(r.content)
     with SessionLocale() as db:
         e = db.scalar(select(EntreeJournal).where(
             EntreeJournal.evenement == "cahier_recette_exporte"))
@@ -451,7 +471,7 @@ def test_levee_des_reserves_apres_correction_et_nouveau_passage(client, admin, i
     r = _executer(client, admin, mid, cas["CT-001"]["id"], "PASS", "x")
     assert r.status_code == 409 and r.json()["regle"] == "RA-63"
     texte = _texte(_cahier(client, admin, mid).content)
-    assert "Réserves levées le" in texte and "Corrections vérifiées en 1.2.1" in texte
+    assert "Ces réserves ont été levées le" in texte and "Corrections vérifiées en 1.2.1" in texte
     with SessionLocale() as db:
         assert db.scalar(select(EntreeJournal).where(
             EntreeJournal.evenement == "reserves_levees")) is not None

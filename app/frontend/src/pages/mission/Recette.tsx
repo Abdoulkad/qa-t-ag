@@ -32,23 +32,35 @@ interface AnomalieR {
 interface EtatRecette {
   statut_mission: string; ouverte: boolean; ia_configuree: boolean;
   suivi_reserves: boolean; reserves_restantes: string[];
+  rapport: RapportR | null;
   compteurs: Record<string, number>; cas: CasR[]; anomalies: AnomalieR[]; reserves: string[];
   cloture: { decision: string; commentaire: string; reserves: string[]; decideur: Personne;
     auto_validation: boolean; decide_le: string;
     levee: { le: string; par: Personne; auto_validation: boolean; commentaire: string | null } | null } | null;
 }
 
-const nom = (p: Personne | null) => (p ? p.nom || p.email : "—");
+interface Redaction {
+  contexte: string; objectifs: string[]; synthese: string; recommandations: Record<string, string>;
+  conclusion: string; avis: string;
+}
+interface RapportR {
+  agent: { etat: string | null; erreur: string | null; ia: string | null; propose_le: string | null };
+  redaction: Redaction | null; modifie_le: string | null; modifie_par: { nom: string; email: string } | null;
+  valide_le: string | null; valide_par: { nom: string; email: string } | null; a_revoir: string[];
+}
+
+const nom = (p: { nom: string; email: string } | null) => (p ? p.nom || p.email : "—");
 
 export default function Recette({ mission: m, recharger }: { mission: Mission; recharger: () => void }) {
   const { donnees: r, erreur, recharger: relire } = useDonnees<EtatRecette>(`/missions/${m.id}/recette`);
-  const [onglet, setOnglet] = useState<"cas" | "anomalies">("cas");
+  const [onglet, setOnglet] = useState<"cas" | "anomalies" | "rapport">("cas");
   const [ouvert, setOuvert] = useState<number | null>(null);
   const exporter = useAction();
   const toutRelire = () => { relire(); recharger(); };
 
   // AG-09 travaille en tâche de fond : on relit tant qu'une qualification est en cours
-  const agentAuTravail = !!r?.anomalies.some((a) => a.agent.etat === "EN_COURS");
+  const agentAuTravail = !!r?.anomalies.some((a) => a.agent.etat === "EN_COURS")
+    || r?.rapport?.agent.etat === "EN_COURS";
   useEffect(() => {
     if (!agentAuTravail) return;
     const t = setInterval(relire, 3000);
@@ -97,6 +109,8 @@ export default function Recette({ mission: m, recharger }: { mission: Mission; r
                   onClick={() => setOnglet("cas")}>Cas · {c.total}</button>
           <button type="button" role="tab" className="puce" aria-pressed={onglet === "anomalies"} aria-selected={onglet === "anomalies"}
                   onClick={() => setOnglet("anomalies")}>Anomalies · {r.anomalies.length}</button>
+          <button type="button" role="tab" className="puce" aria-pressed={onglet === "rapport"} aria-selected={onglet === "rapport"}
+                  onClick={() => setOnglet("rapport")}>Rapport{r.rapport?.valide_le ? " · validé" : ""}</button>
         </div>
       </div>
 
@@ -125,8 +139,11 @@ export default function Recette({ mission: m, recharger }: { mission: Mission; r
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : onglet === "anomalies" ? (
         <Anomalies mission={m} recette={r} apres={toutRelire} />
+      ) : (
+        <OngletRapport key={(r.rapport?.agent.propose_le ?? "") + (r.rapport?.modifie_le ?? "")}
+                       mission={m} recette={r} apres={toutRelire} />
       )}
 
       <Cloture mission={m} recette={r} apres={toutRelire} />
@@ -159,7 +176,8 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
     if (images.length) { ev.preventDefault(); ajouter(images); }
   };
   const exigences: Record<string, string> = {
-    PASS: "Résultat obtenu obligatoire.", FAIL: "Résultat obtenu et au moins une capture obligatoires.",
+    PASS: "Résultat obtenu et au moins une capture obligatoires.",
+    FAIL: "Résultat obtenu et au moins une capture obligatoires.",
     BLOCKED: "Commentaire obligatoire : pourquoi le cas n'a pas pu être testé.",
     NOT_RUN: "Commentaire obligatoire : pourquoi le cas n'est pas exécuté.",
   };
@@ -209,7 +227,7 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             <textarea id="commentaire" rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
           </div>
           <div className="champ">
-            <label htmlFor="captures">Captures d'écran (PNG ou JPEG, 5 au plus)</label>
+            <label htmlFor="captures">Captures d'écran (PNG ou JPEG, 5 au plus{statut === "PASS" || statut === "FAIL" ? ", au moins une obligatoire" : ""})</label>
             <input id="captures" type="file" accept="image/png,image/jpeg" multiple
                    onChange={(e) => { ajouter(e.target.files); e.target.value = ""; }} />
             <span className="aide">Astuce : collez une capture directement (Ctrl+V) dans ce formulaire.</span>
@@ -225,7 +243,9 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             )}
           </div>
           <MessageErreur erreur={action.erreur} />
-          <div><button className="bouton principal" disabled={action.enCours || !statut}>
+          <div><button className="bouton principal"
+                       disabled={action.enCours || !statut || ((statut === "PASS" || statut === "FAIL") && captures.length === 0)}
+                       title={(statut === "PASS" || statut === "FAIL") && captures.length === 0 ? "Joignez au moins une capture d'écran" : undefined}>
             {action.enCours ? "Enregistrement…" : `Enregistrer le passage ${cas.executions.length + 1}`}
           </button></div>
         </form>
@@ -520,5 +540,110 @@ function Cloture({ mission: m, recette: r, apres }: { mission: Mission; recette:
           : <button className="bouton principal" disabled={action.enCours || !commentaire.trim()} onClick={() => cloturer("CLOTURE_AVEC_RESERVES")}>Clôturer avec réserves</button>}
       </div>
     </section>
+  );
+}
+
+
+// --- Rapport de test rédigé (AG-11) ------------------------------------------------------
+
+const AVIS = ["Favorable", "Favorable avec réserves", "Défavorable"];
+const VIDE: Redaction = { contexte: "", objectifs: [], synthese: "", recommandations: {}, conclusion: "", avis: "" };
+
+function OngletRapport({ mission: m, recette: r, apres }: { mission: Mission; recette: EtatRecette; apres: () => void }) {
+  const rapport = r.rapport;
+  const [texte, setTexte] = useState<Redaction>(rapport?.redaction ?? VIDE);
+  const [objectifs, setObjectifs] = useState((rapport?.redaction?.objectifs ?? []).join("\n"));
+  const action = useAction();
+  const executes = r.compteurs.PASS + r.compteurs.FAIL + r.compteurs.BLOCKED;
+  const modifiable = r.statut_mission !== "VALIDEE";
+  const enCours = rapport?.agent.etat === "EN_COURS";
+  const corps = (valider: boolean) => ({
+    ...texte, objectifs: objectifs.split("\n").map((o) => o.replace(/^[-•*]\s*/, "").trim()).filter(Boolean), valider,
+  });
+  const enregistrer = (valider: boolean) => action.lancer(async () => {
+    await api(`/missions/${m.id}/recette/rapport`, { methode: "PUT", corps: corps(valider) });
+    apres();
+  });
+  const rediger = () => action.lancer(async () => {
+    await api(`/missions/${m.id}/recette/rapport/redaction`, { methode: "POST" });
+    apres();
+  });
+  const champ = (cle: "contexte" | "synthese" | "conclusion", libelle: string, aide: string, lignes: number) => (
+    <div className="champ">
+      <label htmlFor={"rapport-" + cle}>{libelle}</label>
+      <textarea id={"rapport-" + cle} rows={lignes} value={texte[cle]} disabled={!modifiable || enCours}
+                onChange={(e) => setTexte({ ...texte, [cle]: e.target.value })} />
+      <span className="aide">{aide}</span>
+    </div>
+  );
+  return (
+    <div className="panneau-corps pile">
+      <p className="discret-texte" style={{ margin: 0 }}>
+        Les faits du cahier (statuts, résultats, captures, compteurs) sont repris tels quels. Ici, vous rédigez les
+        parties d'interprétation : contexte, objectifs, synthèse, recommandations et conclusion. Les nombres de cas,
+        d'anomalies et les pourcentages sont contrôlés : ils doivent correspondre aux résultats.
+      </p>
+      <div className="rangee">
+        <button className="bouton" disabled={action.enCours || enCours || !r.ia_configuree || executes === 0 || !modifiable}
+                title={!r.ia_configuree ? "Aucune IA configurée" : executes === 0 ? "Aucun cas exécuté" : undefined}
+                onClick={rediger}>{rapport?.redaction ? "Faire rédiger de nouveau par AG-11" : "Faire rédiger par AG-11"}</button>
+        {rapport?.redaction && <span className="discret-texte">Une nouvelle rédaction remplace le texte ci-dessous et annule la validation.</span>}
+      </div>
+      {enCours && <div className="message-info" role="status">AG-11 rédige le rapport…</div>}
+      {rapport?.agent.etat === "ECHEC" && (
+        <div className="message-erreur">AG-11 n'a pas pu rédiger le rapport : {rapport.agent.erreur}. Rédigez-le vous-même ou relancez AG-11.</div>
+      )}
+      {rapport?.agent.etat === "PROPOSEE" && !rapport.valide_le && (
+        <div className="proposition-agent">
+          <div className="etiquette">Proposition d'AG-11{rapport.agent.ia ? ` (${rapport.agent.ia})` : ""}</div>
+          <div style={{ fontSize: "0.9rem" }}>Relisez et corrigez le texte, puis validez-le : il n'entre pas dans le cahier avant.</div>
+        </div>
+      )}
+      {rapport?.valide_le && rapport.a_revoir.length === 0 && (
+        <div className="message-info">Rapport validé par {nom(rapport.valide_par)} le {date(rapport.valide_le)} : il figure dans le cahier de recette.</div>
+      )}
+      {rapport?.valide_le && rapport.a_revoir.length > 0 && (
+        <div className="message-erreur">
+          <strong>Le rapport validé ne correspond plus aux résultats.</strong> Corrigez-le et validez-le de nouveau ; le cahier ne peut pas être exporté d'ici là.
+          <ul>{rapport.a_revoir.map((e) => <li key={e}>{e}</li>)}</ul>
+        </div>
+      )}
+
+      {champ("contexte", "Contexte", "L'objet de la campagne et ce qu'elle couvre.", 4)}
+      <div className="champ">
+        <label htmlFor="rapport-objectifs">Objectifs (un par ligne, 8 au plus)</label>
+        <textarea id="rapport-objectifs" rows={4} value={objectifs} disabled={!modifiable || enCours}
+                  onChange={(e) => setObjectifs(e.target.value)} placeholder="Vérifier que … (CA-01)" />
+      </div>
+      {champ("synthese", "Synthèse", "Ce qui a été vérifié et le résultat global, avec les chiffres exacts.", 4)}
+      <div className="champ">
+        <span className="etiquette">Recommandations par cas (facultatives)</span>
+        {r.cas.map((c) => (
+          <div key={c.id} className="rangee" style={{ flexWrap: "nowrap", gap: 8 }}>
+            <label htmlFor={"reco-" + c.code} className="ref" style={{ minWidth: 64 }}>{c.code}</label>
+            <input id={"reco-" + c.code} type="text" value={texte.recommandations[c.code] ?? ""} disabled={!modifiable || enCours}
+                   placeholder={c.statut === "PASS" ? "Rien à recommander" : "Action recommandée"}
+                   onChange={(e) => setTexte({ ...texte, recommandations: { ...texte.recommandations, [c.code]: e.target.value } })} />
+          </div>
+        ))}
+      </div>
+      {champ("conclusion", "Conclusion", "La conformité aux exigences.", 3)}
+      <div className="champ" style={{ maxWidth: 320 }}>
+        <label htmlFor="rapport-avis">Avis sur la mise en production</label>
+        <select id="rapport-avis" value={texte.avis} disabled={!modifiable || enCours}
+                onChange={(e) => setTexte({ ...texte, avis: e.target.value })}>
+          <option value="" disabled>Choisir…</option>
+          {AVIS.map((a) => <option key={a}>{a}</option>)}
+        </select>
+        <span className="aide">« Favorable » seulement si tous les cas sont réussis et aucune anomalie ouverte.</span>
+      </div>
+      <MessageErreur erreur={action.erreur} />
+      {modifiable && (
+        <div className="rangee">
+          <button className="bouton" disabled={action.enCours || enCours} onClick={() => enregistrer(false)}>Enregistrer sans valider</button>
+          <button className="bouton principal" disabled={action.enCours || enCours || !texte.avis} onClick={() => enregistrer(true)}>Valider le rapport</button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -10,6 +10,7 @@ Trois tâches, chacune = un agent IA + un contrôle par script :
 - REECRITURE           : exigence réécrite         -> verifier_reecriture.py
 - CONCEPTION (AG-02/03): cas de test + traçabilité -> controler_cas.py
 - ANOMALIE   (AG-09)  : qualification proposée    -> controler_qualification.py
+- RAPPORT    (AG-11)  : rapport de test rédigé     -> controler_rapport.py
 """
 import threading
 
@@ -20,7 +21,7 @@ from . import journal, regles, scripts_qa
 from .config import parametres
 from .db import SessionLocale
 from .ia import agents, fournisseurs
-from .models import (Anomalie, CasTest, ConfigIA, CritereAcceptation, Defaut, Execution, Mission,
+from .models import (Anomalie, RapportRecette, CasTest, ConfigIA, CritereAcceptation, Defaut, Execution, Mission,
                      QuestionMetier, RegleMetier, TacheIA, Trace, VersionExigence, maintenant)
 
 # Statut de mission pendant la tâche -> statut si la tâche échoue
@@ -57,7 +58,7 @@ def executer(tache_id: int) -> None:
         db.commit()
         try:
             {"ANALYSE": _analyser, "REECRITURE": _reecrire, "CONCEPTION": _concevoir,
-             "ANOMALIE": _qualifier_anomalie}[tache.type](db, tache)
+             "ANOMALIE": _qualifier_anomalie, "RAPPORT": _rediger_rapport}[tache.type](db, tache)
             tache.etat = "TERMINEE"
         except Exception as e:  # noqa: BLE001 — toute erreur est tracée, jamais avalée
             db.rollback()
@@ -72,6 +73,10 @@ def executer(tache_id: int) -> None:
                 anomalie = db.get(Anomalie, tache.cible_id)
                 if anomalie is not None:
                     anomalie.etat_agent, anomalie.erreur_agent = "ECHEC", str(e)[:2000]
+            if tache.type == "RAPPORT" and tache.cible_id:        # RA-66 : rédaction à la main
+                rapport = db.get(RapportRecette, tache.cible_id)
+                if rapport is not None:
+                    rapport.etat_agent, rapport.erreur_agent = "ECHEC", str(e)[:2000]
             journal.ajouter(db, tache.organisation_id, "%s_echec" % tache.type.lower(),
                             mission_id=mission.id, details={"erreur": str(e)[:300]})
         tache.termine_le = maintenant()
@@ -333,3 +338,28 @@ def _qualifier_anomalie(db: Session, tache: TacheIA) -> None:
                         "anomalie": anomalie.code, "gravite": q["gravite"],
                         "reproductibilite": q["reproductibilite"],
                         "ia": "%s/%s" % (config.fournisseur, config.modele)})
+
+
+def _rediger_rapport(db: Session, tache: TacheIA) -> None:
+    """AG-11 : rédige les parties d'interprétation du rapport de test ;
+    controler_rapport.py vérifie chiffres, références et avis. L'humain valide."""
+    import json
+
+    from . import rapport as rapport_svc
+    rapport = db.get(RapportRecette, tache.cible_id)
+    mission = db.get(Mission, tache.mission_id)
+    config = _config(db, mission.organisation_id)
+    f, texte_faits = rapport_svc.faits(db, mission)
+
+    def controler(sortie):
+        return rapport_svc.controler(sortie, f)
+    _, r, _ = _generer_au_format(config, agents.prompt_skill("qa-redaction-rapport"),
+                                 agents.consigne_rapport(texte_faits), controler)
+    rapport.proposition = json.dumps(r, ensure_ascii=False)
+    rapport.redaction = rapport.proposition
+    rapport.propose_le = maintenant()
+    rapport.valide_par_id, rapport.valide_le = None, None
+    rapport.etat_agent, rapport.erreur_agent = "PROPOSEE", None
+    rapport.ia = "%s/%s" % (config.fournisseur, config.modele)
+    journal.ajouter(db, mission.organisation_id, "rapport_propose", mission_id=mission.id,
+                    agent="AG-11", details={"avis": r["avis"], "ia": rapport.ia})

@@ -156,3 +156,13 @@ def consigne_anomalie(cas, echecs: list, regles: list[dict], criteres: list[dict
                 + ("Une seule exécution en échec : la reproductibilité est « Non déterminée »."
                    if len(echecs) < 2 else ""))
     return consigne, faits
+
+
+def consigne_rapport(faits: str) -> str:
+    """AG-11 : faits de la recette ; seuls ces faits peuvent être cités."""
+    return (faits + "\n\nRédige les parties d'interprétation du rapport de test selon ta "
+            "grille, à partir de ces seuls faits. Réponds UNIQUEMENT avec les sections "
+            "« ## Contexte », « ## Objectifs », « ## Synthèse », « ## Recommandations » et "
+            "« ## Conclusion » (terminée par la ligne « - **Avis** : … »), dans cet ordre, "
+            "sans rien avant ni après. Tout nombre de cas, d'anomalies ou pourcentage doit "
+            "correspondre exactement aux compteurs fournis.")

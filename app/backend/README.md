@@ -111,11 +111,16 @@ npm run build
 Après PV-2, l'étape **Recette** de la mission liste les cas à exécuter. Pour
 chaque cas : choisissez le statut (Succès, Échec, Non testable, Non exécuté),
 saisissez le résultat obtenu et joignez vos captures (bouton ou Ctrl+V dans
-le formulaire). Un échec exige une capture et ouvre une anomalie ; l'agent
+le formulaire). Succès et échec exigent au moins une capture ; un échec ouvre
+une anomalie ; l'agent
 AG-09 en propose la qualification, que vous confirmez ou modifiez (motif à
 l'appui). Déclarez une anomalie corrigée à la livraison du correctif, puis
 rejouez le cas : un passage réussi la ferme. Clôturez enfin la recette, sans
 réserve ou avec réserves motivées, et exportez le cahier de recette Word.
+L'onglet **Rapport** rédige les parties d'interprétation du cahier
+(contexte, objectifs, synthèse, recommandations, conclusion, avis) : faites-
+les proposer par l'agent AG-11, corrigez-les, puis validez-les ; seul le
+texte validé entre dans le cahier.
 Après une clôture avec réserves, seuls les cas en réserve se rejouent ; quand
 ils sont tous réussis et leurs anomalies résolues, **Lever les réserves**
 termine le suivi.
