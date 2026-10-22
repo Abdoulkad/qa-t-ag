@@ -14,8 +14,8 @@ Principe inchangé : **le script calcule · l'agent analyse · l'humain arbitre.
 - **Exécution manuelle** des cas, passage par passage, historique conservé :
   statut (Succès, Échec, Non testable, Non exécuté), résultat obtenu,
   commentaire, captures (bouton ou Ctrl+V).
-- **Règles serveur** : résultat obtenu exigé pour Succès et Échec, capture
-  exigée pour un échec, commentaire exigé pour Non testable et Non exécuté.
+- **Règles serveur** : résultat obtenu et au moins une capture exigés pour
+  Succès et Échec, commentaire exigé pour Non testable et Non exécuté.
 - **Captures en base** avec empreinte SHA-256, PNG ou JPEG reconnus à leur
   signature, couvertes par la sauvegarde.
 - **Anomalies ANO-nnn** ouvertes par chaque échec, sans doublon au nouvel échec.
@@ -29,8 +29,9 @@ Principe inchangé : **le script calcule · l'agent analyse · l'humain arbitre.
 - **Suivi et levée des réserves** : après une clôture avec réserves, les seuls
   cas en réserve restent rejouables et leurs anomalies suivies ; la levée des
   réserves est une décision distincte (statut « Réserves levées »).
-- **Cahier de recette Word** au gabarit DSI : zones d'exécution remplies,
-  captures, synthèse ; relu et comparé à la base avant d'être remis (RA-33).
+- **Cahier de recette Word** au gabarit DSI du rapport de test : contexte,
+  objectifs, un bloc par cas avec captures, récapitulatif, conclusion ; relu
+  et comparé à la base avant d'être remis (RA-33).
 
 ## Sécurité (lots S1 et S2)
 
@@ -42,7 +43,7 @@ sessions fermées après un changement de mot de passe.
 ## Règles et tests
 
 - Règles RA-01 à RA-65 dans `docs/specifications.md`, reliées à leurs tests (§ 12).
-- 204 tests automatiques côté serveur.
+- 205 tests automatiques côté serveur.
 - Migrations 0001 à 0008, applicables sur une base existante.
 
 ## Mettre à jour

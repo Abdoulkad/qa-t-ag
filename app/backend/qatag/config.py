@@ -30,6 +30,8 @@ class Parametres(BaseSettings):
     dossier_skills: Path = RACINE_DEPOT / "webapp" / "skills"
     dossier_fichiers: Path = RACINE_DEPOT / "app" / "donnees"
     gabarit_cahier: Path = RACINE_DEPOT / "webapp" / "modele-cahier-cas.docx"
+    # Cahier de recette : gabarit DSI du rapport de test après exécution
+    gabarit_rapport_test: Path = RACINE_DEPOT / "webapp" / "modele-rapport-test.docx"
 
     # Sauvegardes (RA-54) : dossier, nombre conservé, dossier bin de PostgreSQL
     # si pg_dump n'est pas dans le PATH (fréquent sous Windows)

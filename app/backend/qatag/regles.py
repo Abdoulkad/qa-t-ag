@@ -105,8 +105,9 @@ def verifier_execution(statut: str, resultat_obtenu: str, commentaire: str,
                                    "« Non testable » et « Non exécuté » sont possibles")
     if statut in ("PASS", "FAIL") and not (resultat_obtenu or "").strip():
         raise RegleViolee("RA-29", "%s exige le résultat obtenu" % LIBELLES_TEST[statut])
-    if statut == "FAIL" and nb_preuves == 0:
-        raise RegleViolee("RA-59", "Un échec exige au moins une capture d'écran")
+    if statut in ("PASS", "FAIL") and nb_preuves == 0:
+        raise RegleViolee("RA-59", "%s exige au moins une capture d'écran : c'est la preuve "
+                                   "de l'exécution" % LIBELLES_TEST[statut])
     if statut in ("BLOCKED", "NOT_RUN") and not (commentaire or "").strip():
         raise RegleViolee("RA-59", "« %s » doit être motivé par un commentaire"
                           % LIBELLES_TEST[statut])

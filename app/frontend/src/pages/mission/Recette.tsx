@@ -159,7 +159,8 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
     if (images.length) { ev.preventDefault(); ajouter(images); }
   };
   const exigences: Record<string, string> = {
-    PASS: "Résultat obtenu obligatoire.", FAIL: "Résultat obtenu et au moins une capture obligatoires.",
+    PASS: "Résultat obtenu et au moins une capture obligatoires.",
+    FAIL: "Résultat obtenu et au moins une capture obligatoires.",
     BLOCKED: "Commentaire obligatoire : pourquoi le cas n'a pas pu être testé.",
     NOT_RUN: "Commentaire obligatoire : pourquoi le cas n'est pas exécuté.",
   };
@@ -209,7 +210,7 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             <textarea id="commentaire" rows={2} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
           </div>
           <div className="champ">
-            <label htmlFor="captures">Captures d'écran (PNG ou JPEG, 5 au plus)</label>
+            <label htmlFor="captures">Captures d'écran (PNG ou JPEG, 5 au plus{statut === "PASS" || statut === "FAIL" ? ", au moins une obligatoire" : ""})</label>
             <input id="captures" type="file" accept="image/png,image/jpeg" multiple
                    onChange={(e) => { ajouter(e.target.files); e.target.value = ""; }} />
             <span className="aide">Astuce : collez une capture directement (Ctrl+V) dans ce formulaire.</span>
@@ -225,7 +226,9 @@ function VoletExecution({ mission: m, cas, ouverte, suivi, fermer, apres }: {
             )}
           </div>
           <MessageErreur erreur={action.erreur} />
-          <div><button className="bouton principal" disabled={action.enCours || !statut}>
+          <div><button className="bouton principal"
+                       disabled={action.enCours || !statut || ((statut === "PASS" || statut === "FAIL") && captures.length === 0)}
+                       title={(statut === "PASS" || statut === "FAIL") && captures.length === 0 ? "Joignez au moins une capture d'écran" : undefined}>
             {action.enCours ? "Enregistrement…" : `Enregistrer le passage ${cas.executions.length + 1}`}
           </button></div>
         </form>

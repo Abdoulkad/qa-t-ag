@@ -263,9 +263,10 @@ régression (AG-10) viendront après l'évaluation des agents.
   `BLOCKED` et `NOT_RUN` sont acceptés par le serveur *(retour testeur :
   PASS/FAIL possible sans résultat attendu défini)*.
 - **RA-29** `PASS` et `FAIL` exigent un résultat obtenu saisi.
-- **RA-59** `FAIL` exige au moins une capture d'écran (le guide du gabarit DSI
-  la rend obligatoire pour tout cas en échec). `BLOCKED` et `NOT_RUN` exigent
-  un commentaire qui les motive.
+- **RA-59** *(modifiée)* `PASS` et `FAIL` exigent au moins une capture
+  d'écran : c'est la preuve de l'exécution, qu'elle réussisse ou non.
+  `BLOCKED` et `NOT_RUN` exigent un commentaire qui les motive (capture
+  facultative).
 - Chaque exécution est un **passage** : l'historique d'un cas est conservé, le
   dernier passage donne son statut courant.
 - **RA-30** Un `FAIL` ouvre une anomalie `ANO-nnn` liée au cas et au passage,
@@ -328,16 +329,21 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 
 ## 8. Cahier de recette (export Word)
 
-- **RA-32** Le cahier est généré **uniquement depuis la base**, à partir du
-  gabarit Word de l'organisation (`cahier_word.py`), dès la première
-  exécution : les zones d'exécution du gabarit reçoivent le dernier passage de
-  chaque cas (résultat observé, statut coché, captures, testeur et date,
-  commentaire et anomalies). Une synthèse en tête donne les compteurs, les
-  anomalies et la décision de clôture avec ses réserves. Avant la clôture, il
-  porte « DOCUMENT DE TRAVAIL » et son nom se termine par `_brouillon`.
+- **RA-32** Le cahier est généré **uniquement depuis la base**, au gabarit DSI
+  du rapport de test (`webapp/modele-rapport-test.docx`), dès la première
+  exécution : page de garde (organisation), **Contexte** (mission, version et
+  empreinte, validation PV-2, période d'exécution, testeurs), **Objectif**
+  (critères d'acceptation validés à PV-1), **Exécution des tests** (un bloc
+  par cas avec son dernier passage : résultat observé, statut coché,
+  captures, testeur et date, commentaire et anomalies), **Récapitulatif**
+  (une ligne par cas : objectif, attendu, obtenu, impact, observations ; le
+  porteur de l'action reste à renseigner) et **Conclusion** (compteurs,
+  anomalies, décision de clôture, réserves et leur levée). Avant la clôture,
+  il porte « DOCUMENT DE TRAVAIL » et son nom se termine par `_brouillon`.
 - **RA-33** Après génération, un contrôle relit le fichier produit et vérifie
-  que chaque cas et chaque statut coché correspondent à la base, et que chaque
-  anomalie y figure *(retour testeur : cohérence entre statuts de recette et
+  que chaque cas et chaque statut coché correspondent à la base, que le
+  récapitulatif reprend les cas dans l'ordre, que chaque anomalie y figure et
+  qu'aucune zone du gabarit n'est restée vide *(retour testeur : cohérence entre statuts de recette et
   export Word)*. En cas d'écart, le fichier n'est pas remis. L'empreinte du
   fichier remis est inscrite au journal.
 
