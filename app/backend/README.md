@@ -126,6 +126,67 @@ ils sont tous réussis et leurs anomalies résolues, **Lever les réserves**
 termine le suivi.
 Les captures sont enregistrées dans la base : la sauvegarde les inclut.
 
+## Évaluation des agents
+
+La campagne suit le protocole d'évaluation : chaque exigence du corpus est
+analysée trois fois par configuration d'IA, puis comparée au corrigé des
+relecteurs. Les classeurs de la campagne contiennent des exigences réelles :
+les fichiers `.xlsx` de `app\backend` (et le dossier `app\evaluation`) sont
+ignorés par Git ; ne les copiez pas ailleurs dans le dépôt.
+
+**1. Une base dédiée, jamais la base de travail.** Une fois, dans psql :
+
+```sql
+CREATE DATABASE qatag_eval OWNER qatag;
+```
+
+Puis, dans une fenêtre PowerShell réservée à la campagne (la variable ne vaut
+que pour cette fenêtre et prime sur `.env`) :
+
+```powershell
+cd app\backend
+.venv\Scripts\Activate.ps1
+$env:DATABASE_URL = "postgresql+psycopg://qatag:VOTRE_MOT_DE_PASSE@localhost:5432/qatag_eval"
+alembic upgrade head
+uvicorn qatag.main:app --port 8001
+```
+
+L'application d'évaluation répond sur http://localhost:8001, avec ses propres
+comptes et sa propre configuration IA.
+
+**2. Le corrigé.** `python -m qatag.evaluation modele-corrige corrige.xlsx`
+crée le classeur à remplir par les deux relecteurs : corpus (EX-01…), défauts
+(VT-01…), règles (RC-01…), seuils validés par la DSI, signature.
+
+**3. Les passages.** Une mission par exigence, configuration et passage,
+titrée `EVAL-EX-01-DeepSeek-P1`. Pour changer de configuration, changez l'IA
+active dans Configuration IA, puis ne la touchez plus jusqu'à la fin de ses
+passages.
+
+**4. L'export.** Dans la même fenêtre (même `DATABASE_URL`) :
+
+```powershell
+python -m qatag.evaluation exporter campagne.xlsx --corrige corrige.xlsx
+```
+
+Le classeur reprend ce que les agents ont réellement produit, défauts écartés
+compris, avec une proposition d'appariement par citation. Le relecteur
+remplit les colonnes jaunes : décision VP, FP, Doublon ou Trouvaille et VT,
+règle du corrigé ou règle inventée, quatre conditions par cas. Après de
+nouveaux passages, un nouvel export garde les saisies :
+`exporter campagne-2.xlsx --corrige corrige.xlsx --reprendre campagne.xlsx`.
+
+**5. La consolidation.**
+
+```powershell
+python -m qatag.evaluation consolider campagne.xlsx synthese.xlsx --corrige corrige.xlsx
+```
+
+Le calcul est refusé tant qu'une décision manque ; la liste dit quoi
+compléter. La synthèse donne les indicateurs I1 à I13 par configuration, la
+décision (apte, apte sous réserve, non apte), les bloquants oubliés, les
+trouvailles, les catégories confondues et la stabilité par exigence.
+
 ## Sécurité
 
 - **Comptes** : après le premier compte, seul un administrateur crée les comptes
@@ -218,5 +279,6 @@ Aucun test n'appelle une vraie IA : les réponses sont simulées.
 | `qatag/taches.py` | Analyses IA en tâche de fond |
 | `qatag/journal.py` | Journal chaîné en ajout seul |
 | `qatag/scripts_qa.py` | Pont vers les scripts déterministes existants |
+| `qatag/evaluation.py` | Campagne d'évaluation des agents : export, appariement, indicateurs |
 | `qatag/ia/fournisseurs.py` | Connecteur DeepSeek, OpenAI, Mistral, Ollama, Anthropic |
 | `migrations/` | Évolutions du schéma PostgreSQL (Alembic) |
