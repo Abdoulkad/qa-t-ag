@@ -252,14 +252,64 @@ Statuts canoniques (`statuts.py`) et libellés affichés :
 | `BLOCKED` | Non testable |
 | `NOT_RUN` | Non exécuté |
 
-- **RA-27** La recette n'est ouverte qu'après PV-2.
-- **RA-28** Sur un cas sans résultat attendu complet, seuls `BLOCKED` et
-  `NOT_RUN` sont acceptés par le serveur *(retour testeur : PASS/FAIL possible
-  sans résultat attendu défini)*.
+Le testeur exécute ; AG-09 propose une qualification des anomalies ; l'humain
+valide et clôture. L'exécution automatique (AG-08) et la sélection des cas de
+régression (AG-10) viendront après l'évaluation des agents.
+
+- **RA-27** La recette n'est ouverte qu'après PV-2 (mission `VALIDEE`). La
+  première exécution fait passer la mission `EN_RECETTE` (inscrit au journal).
+  Après la clôture, plus aucune exécution ni changement d'anomalie.
+- **RA-28** Sur un cas sans résultat attendu complet (cas non `PRET`), seuls
+  `BLOCKED` et `NOT_RUN` sont acceptés par le serveur *(retour testeur :
+  PASS/FAIL possible sans résultat attendu défini)*.
 - **RA-29** `PASS` et `FAIL` exigent un résultat obtenu saisi.
-- **RA-30** Un `FAIL` ouvre une anomalie liée au cas (AG-09).
-- **RA-31** Une preuve (capture) est stockée sur disque ; la base garde son
-  chemin, son type et son empreinte SHA-256. PNG ou JPEG, 10 Mo maximum.
+- **RA-59** `FAIL` exige au moins une capture d'écran (le guide du gabarit DSI
+  la rend obligatoire pour tout cas en échec). `BLOCKED` et `NOT_RUN` exigent
+  un commentaire qui les motive.
+- Chaque exécution est un **passage** : l'historique d'un cas est conservé, le
+  dernier passage donne son statut courant.
+- **RA-30** Un `FAIL` ouvre une anomalie `ANO-nnn` liée au cas et au passage,
+  dont la description reprend le résultat attendu, le résultat obtenu et le
+  commentaire du testeur.
+- **RA-31** *(modifiée au lot 3)* Une preuve (capture) est conservée **en
+  base**, avec son nom, son type, sa taille et son empreinte SHA-256 : la
+  sauvegarde de la base la couvre, et toute modification se verrait. PNG ou
+  JPEG reconnus à leur signature (pas à l'extension), 10 Mo maximum, 5 par
+  passage. Une capture n'est servie qu'à qui voit la mission.
+- **RA-60** **Qualification des anomalies.** Si une IA est configurée, AG-09
+  propose en tâche de fond un titre, une gravité (Bloquante, Critique, Majeure,
+  Mineure), une reproductibilité et une justification ; le format est contrôlé
+  par `controler_qualification.py` (valeurs permises, titre de 120 caractères
+  au plus, pas de donnée personnelle absente des faits, reproductibilité
+  « Systématique » ou « Intermittente » seulement à partir de deux échecs).
+  La proposition n'est jamais retenue d'office : un humain fixe la gravité.
+  Confirmer la proposition ne demande pas de motif ; s'en écarter, si. Sans
+  IA, ou si AG-09 échoue, l'humain qualifie seul (AG-09 peut être relancé).
+- **RA-61** **Cycle de vie.** `OUVERTE` → `CORRIGEE` (correction annoncée,
+  référence de livraison facultative) ; `OUVERTE` ou `CORRIGEE` → `REJETEE`
+  (ce n'est pas une anomalie, motif obligatoire) ; `REJETEE` → `OUVERTE`
+  (motif obligatoire). La fermeture ne se décide pas : un passage réussi du
+  cas ferme ses anomalies ouvertes ou corrigées (`FERMEE`).
+- **RA-62** Un nouvel échec d'un cas qui a déjà une anomalie ouverte ou
+  corrigée ne crée pas de doublon : l'anomalie est reliée au nouveau passage,
+  et rouverte si elle était déclarée corrigée.
+- **RA-63** **Clôture de la recette**, par les mêmes règles d'habilitation
+  que les Human Gates (RA-12 à RA-14). *Sans réserve* : tous les cas réussis
+  à leur dernier passage, aucune anomalie ouverte ou corrigée. *Avec
+  réserves* : motif obligatoire ; la liste des réserves (cas non réussis,
+  anomalies non résolues) est calculée par le serveur et figée dans la
+  décision. Refusée s'il n'y a aucune réserve.
+- **RA-64** **Suivi des réserves.** Après une clôture avec réserves, le
+  périmètre des réserves (cas non réussis et cas des anomalies non résolues au
+  moment de la clôture) reste suivi : ces seuls cas peuvent être rejoués, et
+  leurs anomalies déclarées corrigées, rejetées ou rouvertes, selon RA-61 et
+  RA-62. Tout autre cas est refusé. La décision de clôture ne change jamais.
+- **RA-65** **Levée des réserves**, par les mêmes règles d'habilitation que la
+  clôture, quand chaque cas en réserve est réussi à son dernier passage et
+  qu'aucune de ses anomalies n'est ouverte ou corrigée (sinon la réponse liste
+  ce qui reste). La mission passe `RESERVES_LEVEES` ; la date, l'auteur et le
+  commentaire de la levée s'ajoutent à la décision de clôture et au cahier de
+  recette. Plus rien ne s'exécute ensuite.
 
 ## 7 bis. Cahier des cas de test (export Word, avant recette)
 
@@ -279,11 +329,17 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 ## 8. Cahier de recette (export Word)
 
 - **RA-32** Le cahier est généré **uniquement depuis la base**, à partir du
-  gabarit Word de l'organisation (`cahier_word.py`).
+  gabarit Word de l'organisation (`cahier_word.py`), dès la première
+  exécution : les zones d'exécution du gabarit reçoivent le dernier passage de
+  chaque cas (résultat observé, statut coché, captures, testeur et date,
+  commentaire et anomalies). Une synthèse en tête donne les compteurs, les
+  anomalies et la décision de clôture avec ses réserves. Avant la clôture, il
+  porte « DOCUMENT DE TRAVAIL » et son nom se termine par `_brouillon`.
 - **RA-33** Après génération, un contrôle relit le fichier produit et vérifie
-  que chaque cas et chaque statut correspondent à la base *(retour testeur :
-  cohérence entre statuts de recette et export Word)*. L'empreinte du fichier
-  est inscrite au journal.
+  que chaque cas et chaque statut coché correspondent à la base, et que chaque
+  anomalie y figure *(retour testeur : cohérence entre statuts de recette et
+  export Word)*. En cas d'écart, le fichier n'est pas remis. L'empreinte du
+  fichier remis est inscrite au journal.
 
 ## 9. Journal QA
 
@@ -350,12 +406,13 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 | `cas_test` | Les 12 colonnes du CSV + justification de technique + statut |
 | `trace` | Cas ↔ exigence ou critère |
 | `decision_porte` | PV-1/PV-2, décision, commentaire, décideur, auto-validation |
-| `execution` | Statut, résultat obtenu, commentaire, testeur, date |
-| `preuve` | Fichier, type, taille, empreinte |
-| `anomalie` | Cas, description, gravité, statut |
+| `execution` | Un passage d'un cas : statut, résultat obtenu, commentaire, testeur, date |
+| `preuve` | Capture d'un passage, conservée en base : nom, contenu, type, taille, empreinte SHA-256 |
+| `anomalie` | ANO-nnn d'une mission : cas, passage, description, proposition d'AG-09, gravité retenue et qualifiant, statut et motif |
 | `journal` | Entrées chaînées en ajout seul |
 | `tache_ia` | Type, état, erreur, horodatages |
 | `config_ia` | Fournisseur et modèle actifs par organisation |
+| `cloture_recette` | Décision de clôture de la recette, réserves figées et leur périmètre, levée des réserves — RA-63 à RA-65 |
 | `tentative_connexion` | Tentatives de connexion (e-mail, adresse IP, date, succès) — RA-52 |
 
 ## 12. Traçabilité règles ↔ tests
@@ -382,7 +439,7 @@ Tenue à jour à chaque lot. Les tests sont dans `app/backend/tests/`.
 | RA-54 | `test_sauvegarde.py` | S1 |
 | RA-55 à RA-58 | `test_mots_de_passe.py` | S2 |
 | (extraction PDF, garde-fou des mises à jour) | `test_extraction.py` | S1 |
-| RA-27 à RA-33 | à venir (recette, export Word) | 3 |
+| RA-27 à RA-33, RA-59 à RA-65 | `test_recette.py` | 3 |
 
 La protection du journal (RA-34) est assurée par la base elle-même : un
 déclencheur PostgreSQL refuse `UPDATE`, `DELETE` et `TRUNCATE` sur la table.

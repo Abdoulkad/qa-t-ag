@@ -16,8 +16,9 @@ TRANSITIONS = {
     "ATTENTE_PV2": ("VALIDEE", "A_CORRIGER"),
     "VALIDEE": ("EN_RECETTE",),
     "EN_RECETTE": ("CLOTUREE",),
+    "CLOTUREE": ("RESERVES_LEVEES",),          # RA-65 : seulement après une clôture avec réserves
+    "RESERVES_LEVEES": (),
     "A_CORRIGER": ("ANALYSE_EN_COURS",),
-    "CLOTUREE": (),
 }
 
 # Porte -> (statut d'attente, statut si approuvée)
@@ -80,11 +81,54 @@ def score_clarte(gravites: list[str]) -> int:
     return max(0, min(100, score))
 
 
-def statuts_test_autorises(resultat_attendu: str) -> tuple[str, ...]:
-    """RA-28 : sans résultat attendu, seuls BLOCKED et NOT_RUN sont permis."""
-    if (resultat_attendu or "").strip():
+def statuts_test_autorises(resultat_attendu: str, statut_cas: str = "PRET") -> tuple[str, ...]:
+    """RA-28 : sans résultat attendu complet (cas non PRET), seuls BLOCKED et
+    NOT_RUN sont permis."""
+    if (resultat_attendu or "").strip() and statut_cas == "PRET":
         return ("PASS", "FAIL", "BLOCKED", "NOT_RUN")
     return ("BLOCKED", "NOT_RUN")
+
+
+# --- Recette (lot 3) ------------------------------------------------------------
+
+PREUVES_MAX = 5
+TAILLE_PREUVE_MAX = 10 * 1024 * 1024
+
+
+def verifier_execution(statut: str, resultat_obtenu: str, commentaire: str,
+                       nb_preuves: int, resultat_attendu: str, statut_cas: str) -> None:
+    """RA-28, RA-29, RA-59 : ce qu'une exécution doit contenir selon son statut."""
+    if statut not in LIBELLES_TEST:
+        raise RegleViolee("RA-28", "Statut d'exécution inconnu : %s" % statut)
+    if statut not in statuts_test_autorises(resultat_attendu, statut_cas):
+        raise RegleViolee("RA-28", "Ce cas n'a pas de résultat attendu complet : seuls "
+                                   "« Non testable » et « Non exécuté » sont possibles")
+    if statut in ("PASS", "FAIL") and not (resultat_obtenu or "").strip():
+        raise RegleViolee("RA-29", "%s exige le résultat obtenu" % LIBELLES_TEST[statut])
+    if statut == "FAIL" and nb_preuves == 0:
+        raise RegleViolee("RA-59", "Un échec exige au moins une capture d'écran")
+    if statut in ("BLOCKED", "NOT_RUN") and not (commentaire or "").strip():
+        raise RegleViolee("RA-59", "« %s » doit être motivé par un commentaire"
+                          % LIBELLES_TEST[statut])
+    if nb_preuves > PREUVES_MAX:
+        raise RegleViolee("RA-31", "%d captures au plus par exécution" % PREUVES_MAX)
+
+
+def type_image(contenu: bytes) -> str | None:
+    """RA-31 : PNG ou JPEG, reconnu à sa signature et non à son extension."""
+    if contenu.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if contenu.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    return None
+
+
+# RA-61 : actions humaines sur une anomalie -> (statuts de départ, statut d'arrivée, motif exigé)
+ACTIONS_ANOMALIE = {
+    "CORRIGER": (("OUVERTE",), "CORRIGEE", False),
+    "REJETER": (("OUVERTE", "CORRIGEE"), "REJETEE", True),
+    "ROUVRIR": (("REJETEE",), "OUVERTE", True),
+}
 
 
 # --- RA-23, RA-24 : statut d'un cas de test, calculé (jamais choisi par l'IA) ---

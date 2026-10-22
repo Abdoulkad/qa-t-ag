@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, type EntreeJournal, type Mission, type Version } from "../api";
 import { MessageErreur, PastilleMission, useAction, useDonnees, useSuiviTache } from "../composants";
@@ -6,18 +6,23 @@ import { date, EVENEMENTS } from "../libelles";
 import CasTests from "./mission/CasTests";
 import Exigence, { traitee, type EtapeExigence } from "./mission/Exigence";
 import Porte from "./mission/Porte";
+import Recette from "./mission/Recette";
 import Tracabilite from "./mission/Tracabilite";
 import { useComplementFil } from "../Cadre";
 
 const NOM_TACHE: Record<string, string> = {
   ANALYSE: "L'analyse (AG-01)", REECRITURE: "La réécriture", CONCEPTION: "La conception (AG-02)",
+  ANOMALIE: "La qualification d'une anomalie (AG-09)",
 };
 
 const LIBELLE_TACHE: Record<string, string> = {
   ANALYSE: "L'agent AG-01 analyse l'exigence",
   REECRITURE: "L'agent réécrit l'exigence à partir de vos réponses",
   CONCEPTION: "L'agent AG-02 conçoit les cas de test",
+  ANOMALIE: "L'agent AG-09 qualifie une anomalie",
 };
+
+const TRAIT = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
 type Etape = EtapeExigence | "concevoir" | "recette";
 type Vue = Etape | "tracabilite" | "journal";
@@ -29,6 +34,7 @@ function etapeParDefaut(m: Mission, v: Version): Etape {
     case "CLARIFICATION": return v.defauts.some((d) => !d.validation) ? "analyser" : "clarifier";
     case "REECRITURE": case "ATTENTE_PV1": return "reecrire";
     case "A_CORRIGER": return v.texte_reecrit ? "reecrire" : "analyser";
+    case "VALIDEE": case "EN_RECETTE": case "CLOTUREE": case "RESERVES_LEVEES": return "recette";
     default: return "concevoir";
   }
 }
@@ -83,8 +89,12 @@ export default function MissionPage() {
               ))}
             </select>
           )}
-          <button className="bouton" aria-pressed={vueActive === "tracabilite"} onClick={() => setVue("tracabilite")}>Traçabilité</button>
-          <button className="bouton" aria-pressed={vueActive === "journal"} onClick={() => setVue("journal")}>Journal</button>
+          <button className="bouton bouton-icone-texte" aria-pressed={vueActive === "tracabilite"} onClick={() => setVue("tracabilite")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5" {...TRAIT} /><circle cx="18" cy="6" r="2.5" {...TRAIT} /><circle cx="12" cy="18" r="2.5" {...TRAIT} /><path d="M7.5 8 11 15.8M16.5 8 13 15.8" {...TRAIT} /></svg>
+            Traçabilité</button>
+          <button className="bouton bouton-icone-texte" aria-pressed={vueActive === "journal"} onClick={() => setVue("journal")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" {...TRAIT} /><path d="M14 3v5h5M9 12h7M9 16h5" {...TRAIT} /></svg>
+            Journal</button>
         </div>
       </div>
 
@@ -96,7 +106,7 @@ export default function MissionPage() {
           vous pouvez aussi la quitter.
         </div>
       )}
-      {!occupe && m.derniere_tache?.etat === "ECHEC" && (
+      {!occupe && m.derniere_tache?.etat === "ECHEC" && m.derniere_tache.type !== "ANOMALIE" && (
         <div className="message-erreur" role="alert">
           <strong>{NOM_TACHE[m.derniere_tache.type] ?? "L'agent"} a échoué</strong>
           {m.derniere_tache.termine_le && <> le {date(m.derniere_tache.termine_le)}</>} :{" "}
@@ -118,10 +128,7 @@ export default function MissionPage() {
                       lancerTache={lancerTache} occupe={occupe} etape={vueActive} allerA={(e) => setVue(e)} />
           )}
           {vueActive === "concevoir" && <CasTests mission={m} historique={historique} recharger={recharger} />}
-          {vueActive === "recette" && (
-            <div className="vide"><strong>Recette</strong>L'exécution des cas, les preuves et le cahier de recette
-              arrivent au lot 3. En attendant, exportez le cahier des cas depuis l'étape Concevoir.</div>
-          )}
+          {vueActive === "recette" && <Recette mission={m} recharger={recharger} />}
           {vueActive === "tracabilite" && <Tracabilite missionId={m.id} />}
           {vueActive === "journal" && <JournalMission missionId={m.id} />}
         </div>
@@ -145,7 +152,7 @@ function Parcours({ mission: m, version: v, active, choisir }: {
   mission: Mission; version: Version; active: Vue; choisir: (e: Etape) => void;
 }) {
   const phase = ({ ANALYSE_EN_COURS: 0, ECHEC_ANALYSE: 0, CLARIFICATION: 1, REECRITURE: 2, ATTENTE_PV1: 2,
-    CONCEPTION: 3, ATTENTE_PV2: 3, VALIDEE: 4, EN_RECETTE: 4, CLOTUREE: 5, A_CORRIGER: -1 } as Record<string, number>)[m.statut] ?? -1;
+    CONCEPTION: 3, ATTENTE_PV2: 3, VALIDEE: 4, EN_RECETTE: 4, CLOTUREE: 5, RESERVES_LEVEES: 5, A_CORRIGER: -1 } as Record<string, number>)[m.statut] ?? -1;
   const decision = (p: string) => v.decisions.find((d) => d.porte === p);
   const examines = v.defauts.filter((d) => d.validation).length;
   const traitees = v.questions.filter(traitee).length;
@@ -159,34 +166,61 @@ function Parcours({ mission: m, version: v, active, choisir }: {
       detail: v.texte_reecrit ? `${v.regles.length} règles · ${v.criteres.length} critères` : "Règles et critères" },
     { cle: "concevoir", nom: "Concevoir", dispo: m.cas.total > 0 || phase >= 3, echec: !!m.en_echec && m.statut === "CONCEPTION",
       detail: m.cas.total ? `${m.cas.total} cas · ${m.cas.prets} prêts` : "Cas de test" },
-    { cle: "recette", nom: "Recette", dispo: phase >= 4, detail: "Lot 3 · exécution" },
+    { cle: "recette", nom: "Recette", dispo: phase >= 4,
+      detail: m.statut === "EN_RECETTE" ? m.prochaine_action.replace("Recette : ", "")
+        : m.statut === "CLOTUREE" ? m.prochaine_action
+        : m.statut === "RESERVES_LEVEES" ? "Clôturée · réserves levées" : "Exécution des cas" },
   ];
+  // Les décisions humaines, posées sur le trait entre deux étapes (losanges)
   const porte = (nom: "PV-1" | "PV-2", attente: number) => {
     const d = decision(nom);
     const etat = d?.decision === "REJETE" ? "fermee" : phase > attente || d?.decision === "APPROUVE" ? "ouverte"
       : m.porte_en_attente === nom ? "attend" : "";
-    return (
-      <div key={nom} className={"parcours-porte " + etat} title={"Human Gate " + nom}>
-        <span className="losange" aria-hidden="true" />{nom}
+    return { cle: nom, fait: etat === "ouverte", noeud: (
+      <div key={nom} className={"parcours-porte " + etat} title={`Décision humaine ${nom}`}>
+        <span className="losange" aria-hidden="true" />
+        <span className="parcours-porte-nom">{nom}</span>
+        <span className="parcours-detail">{etat === "ouverte" ? "Approuvé" : etat === "fermee" ? "Rejeté" : etat === "attend" ? "À décider" : "Décision"}</span>
       </div>
-    );
+    ) };
   };
-  const rendu = etapes.map((e, i) => {
+  const cloture = (() => {
+    const etat = m.statut === "RESERVES_LEVEES" || m.statut === "CLOTUREE" ? "ouverte"
+      : m.statut === "EN_RECETTE" ? "attend" : "";
+    const detail = m.statut === "RESERVES_LEVEES" ? "Réserves levées"
+      : m.statut === "CLOTUREE" ? (m.prochaine_action.startsWith("Réserves") || m.prochaine_action === "Lever les réserves" ? "Avec réserves" : "Clôturée")
+      : m.statut === "EN_RECETTE" ? "À décider" : "Décision";
+    return { cle: "cloture", fait: etat === "ouverte", noeud: (
+      <div key="cloture" className={"parcours-porte " + etat} title="Décision humaine : clôture de la recette">
+        <span className="losange" aria-hidden="true" />
+        <span className="parcours-porte-nom">Clôture</span>
+        <span className="parcours-detail">{detail}</span>
+      </div>
+    ) };
+  })();
+  const noeuds = etapes.map((e, i) => {
     const etat = e.echec ? "echec" : phase > i ? "faite" : phase === i ? "courante" : "";
     const contenu = (
       <>
         <span className="parcours-numero" aria-hidden="true">{etat === "faite" ? "✓" : etat === "echec" ? "!" : i + 1}</span>
-        <span><span className="parcours-nom">{e.nom}</span><span className="parcours-detail">{e.detail}</span></span>
+        <span className="parcours-nom">{e.nom}</span>
+        <span className="parcours-detail">{e.detail}</span>
       </>
     );
-    return e.dispo
+    return { cle: e.cle, fait: etat === "faite", noeud: e.dispo
       ? <button key={e.cle} type="button" className={"parcours-etape " + etat} aria-current={active === e.cle ? "step" : undefined}
                 onClick={() => choisir(e.cle)}>{contenu}</button>
-      : <div key={e.cle} className={"parcours-etape indisponible " + etat}>{contenu}</div>;
+      : <div key={e.cle} className={"parcours-etape indisponible " + etat}>{contenu}</div> };
   });
+  const suite = [noeuds[0], noeuds[1], noeuds[2], porte("PV-1", 2), noeuds[3], porte("PV-2", 3), noeuds[4], cloture];
   return (
-    <nav className="parcours" aria-label="Étapes de la mission">
-      {rendu[0]}{rendu[1]}{rendu[2]}{porte("PV-1", 2)}{rendu[3]}{porte("PV-2", 3)}{rendu[4]}
+    <nav className="parcours" aria-label="Étapes de la mission et décisions humaines">
+      {suite.map((n, i) => (
+        <Fragment key={n.cle}>
+          {i > 0 && <span className={"parcours-lien" + (suite[i - 1].fait ? " fait" : "")} aria-hidden="true" />}
+          {n.noeud}
+        </Fragment>
+      ))}
     </nav>
   );
 }
@@ -205,8 +239,16 @@ function ProchaineEtape({ mission: m, version: v, occupe, aller, lancerTache }: 
         </div>
         {m.statut === "VALIDEE" && (
           <div className="panneau-corps discret-texte">
-            Les cas sont validés et figés. Exportez le cahier des cas depuis l'étape{" "}
+            Les cas sont validés et figés. Exécutez-les à l'étape{" "}
+            <button className="lien" onClick={() => aller("recette")}>Recette</button> ; le cahier des cas
+            (zones d'exécution vides) reste disponible à l'étape{" "}
             <button className="lien" onClick={() => aller("concevoir")}>Concevoir</button>.
+          </div>
+        )}
+        {m.statut === "EN_RECETTE" && (
+          <div className="panneau-corps discret-texte">
+            Chaque échec ouvre une anomalie qualifiée par AG-09, puis par vous. Clôturez la recette à
+            l'étape <button className="lien" onClick={() => aller("recette")}>Recette</button>.
           </div>
         )}
       </section>
@@ -414,7 +456,9 @@ function DetailsJournal({ e }: { e: EntreeJournal }) {
   const morceaux: string[] = [];
   if (d.question) morceaux.push(String(d.question));
   if (d.critere) morceaux.push(String(d.critere));
-  if (d.cas) morceaux.push(String(d.cas));
+  if (d.anomalie) morceaux.push(String(d.anomalie));
+  if (d.cas) morceaux.push(String(d.cas) + (d.statut ? " · " + String(d.statut) : "") + (d.passage ? ` · passage ${d.passage}` : ""));
+  if (d.gravite) morceaux.push(String(d.gravite));
   if (d.motif) morceaux.push("motif : " + String(d.motif));
   if (d.commentaire) morceaux.push("« " + String(d.commentaire) + " »");
   if (d.defauts !== undefined) morceaux.push(`${d.defauts} défaut(s), clarté ${d.score_clarte}/100`);

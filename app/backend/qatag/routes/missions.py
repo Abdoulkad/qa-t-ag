@@ -8,11 +8,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import missions as svc
+from .. import recette as recette_svc
 from ..db import session_db
 from ..deps import acteur_mission, utilisateur_courant
 from ..extraction import FichierRefuse, extraire
-from ..models import (CasTest, DecisionPorte, EntreeJournal, Execution, Mission, TacheIA, Trace,
-                      Utilisateur, VersionExigence)
+from ..models import (Anomalie, CasTest, DecisionPorte, EntreeJournal, Execution, Mission,
+                      TacheIA, Trace, Utilisateur, VersionExigence)
 from ..regles import PORTES
 from .schemas import (AjoutParticipant, CreationMission, Decision, DecisionQuestions,
                       EcartCritere, EcartCriteres, JustificationPhrases, ModificationCas,
@@ -71,12 +72,33 @@ def _situation(db: Session, m: Mission, v: VersionExigence) -> dict:
     elif porte:
         action = "Décider %s" % porte + (" · %d point%s à traiter" % (n_bloquants, "s" * (n_bloquants > 1))
                                          if n_bloquants else "")
+    elif m.statut == "EN_RECETTE":
+        action = _avancement_recette(db, m, v)
+    elif m.statut == "CLOTUREE" and recette_svc.suivi_reserves(db, m) is not None:
+        n = len(recette_svc.reserves_restantes(db, m))
+        action = ("Lever les réserves" if n == 0 else
+                  "Réserves à lever : %d point%s ouvert%s" % (n, "s" * (n > 1), "s" * (n > 1)))
     else:
         action = {"VALIDEE": "Prête pour la recette", "A_CORRIGER": "Corriger et resoumettre",
-                  "EN_RECETTE": "Recette en cours", "CLOTUREE": "Clôturée"}.get(m.statut, "—")
+                  "CLOTUREE": "Clôturée", "RESERVES_LEVEES": "Clôturée · réserves levées"
+                  }.get(m.statut, "—")
     return {"prochaine_action": action, "questions_bloquantes": bloquantes, "en_echec": echec,
             "occupe": occupe, "bloquants": n_bloquants,
             "cas": {"total": sum(compte.values()), "prets": compte.get("PRET", 0)}}
+
+
+def _avancement_recette(db: Session, m: Mission, v: VersionExigence) -> str:
+    """Prochaine action d'une recette en cours : cas restants, anomalies ouvertes."""
+    ids = list(db.scalars(select(CasTest.id).where(CasTest.version_id == v.id)))
+    executes = db.scalar(select(func.count(func.distinct(Execution.cas_id)))
+                         .where(Execution.cas_id.in_(ids))) if ids else 0
+    ouvertes = db.scalar(select(func.count()).select_from(Anomalie).where(
+        Anomalie.mission_id == m.id, Anomalie.statut.in_(("OUVERTE", "CORRIGEE"))))
+    texte = "Recette : %d/%d cas exécutés" % (executes, len(ids))
+    if ouvertes:
+        texte += " · %d anomalie%s ouverte%s" % (ouvertes, "s" * (ouvertes > 1),
+                                                 "s" * (ouvertes > 1))
+    return texte
 
 
 def _version(db: Session, v: VersionExigence) -> dict:

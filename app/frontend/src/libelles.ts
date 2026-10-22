@@ -12,6 +12,7 @@ export const STATUT_MISSION: Record<StatutMission, { libelle: string; ton: Ton }
   VALIDEE: { libelle: "Validée", ton: "succes" },
   EN_RECETTE: { libelle: "En recette", ton: "neutre" },
   CLOTUREE: { libelle: "Clôturée", ton: "succes" },
+  RESERVES_LEVEES: { libelle: "Réserves levées", ton: "succes" },
   A_CORRIGER: { libelle: "À corriger", ton: "alerte" },
 };
 
@@ -64,7 +65,39 @@ export const EVENEMENTS: Record<string, string> = {
   cas_modifie: "Cas corrigé",
   tache_relancee: "Agent relancé",
   cahier_cas_exporte: "Cahier des cas exporté",
+  recette_ouverte: "Recette ouverte",
+  cas_execute: "Cas exécuté",
+  anomalie_ouverte: "Anomalie ouverte",
+  anomalie_proposee: "Qualification proposée par AG-09",
+  anomalie_echec: "Qualification AG-09 en échec",
+  anomalie_qualifiee: "Anomalie qualifiée",
+  anomalie_corrigee: "Anomalie déclarée corrigée",
+  anomalie_rejetee: "Anomalie rejetée",
+  anomalie_reouverte: "Anomalie rouverte",
+  anomalie_rouverte: "Anomalie rouverte après un nouvel échec",
+  anomalie_fermee: "Anomalie fermée",
+  recette_cloturee: "Recette clôturée",
+  reserves_levees: "Réserves levées",
+  cahier_recette_exporte: "Cahier de recette exporté",
 };
+
+/** Statuts d'exécution (codes canoniques de statuts.py). */
+export const STATUT_EXECUTION: Record<string, { libelle: string; ton: Ton }> = {
+  PASS: { libelle: "Succès", ton: "succes" },
+  FAIL: { libelle: "Échec", ton: "alerte" },
+  BLOCKED: { libelle: "Non testable", ton: "attente" },
+  NOT_RUN: { libelle: "Non exécuté", ton: "neutre" },
+};
+
+export const STATUT_ANOMALIE: Record<string, { libelle: string; ton: Ton }> = {
+  OUVERTE: { libelle: "Ouverte", ton: "alerte" },
+  CORRIGEE: { libelle: "Corrigée · à retester", ton: "attente" },
+  FERMEE: { libelle: "Fermée", ton: "succes" },
+  REJETEE: { libelle: "Rejetée", ton: "neutre" },
+};
+
+export const GRAVITES_ANOMALIE = ["Bloquante", "Critique", "Majeure", "Mineure"];
+export const REPRODUCTIBILITES = ["Non déterminée", "Systématique", "Intermittente", "Non reproductible"];
 
 export const DECISION_QUESTION: Record<string, string> = {
   HORS_PERIMETRE: "Hors périmètre",

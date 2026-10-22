@@ -239,3 +239,8 @@ def cahier_cas(lignes: list[list[str]], bandeau: str, sortie: str) -> None:
         run = premier.insert_paragraph_before().add_run(texte)
         run.bold = i == 0
     doc.save(sortie)
+
+
+def analyser_qualification(sortie: str, nb_echecs: int, faits: str):
+    """AG-09 : contrôle par controler_qualification.py. Renvoie (qualification, erreurs)."""
+    return _module("controler_qualification").parser(sortie, nb_echecs, faits)

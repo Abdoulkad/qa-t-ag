@@ -439,34 +439,48 @@ td .sous { color: var(--encre-pale); font-size: 0.82rem; margin-top: 2px; }
 .puce:hover { border-color: var(--encre-pale); }
 .puce[aria-pressed="true"] { background: var(--action); border-color: var(--action); color: #fff; }
 
-/* --- Mission : parcours par étapes (navigation principale) ---------------- */
-.parcours { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--trait); border-radius: 10px; }
-.parcours-etape {
-  flex: 1 1 150px; display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 7px;
-  border: 0; background: transparent; font: inherit; color: var(--encre); text-align: left; cursor: pointer;
+/* --- Mission : parcours par étapes (navigation principale) ----------------
+   Pastilles reliées par un trait (vert une fois l'étape franchie) ; les décisions
+   humaines sont des losanges posés sur le trait ; l'étape affichée est encadrée. */
+.parcours {
+  display: flex; align-items: flex-start; padding: 12px 14px; overflow-x: auto;
+  background: var(--surface); border: 1px solid var(--trait); border-radius: 12px;
+  --centre: 25px;                     /* hauteur du centre des pastilles */
 }
+.parcours-etape, .parcours-porte {
+  flex: none; display: flex; flex-direction: column; align-items: center; text-align: center;
+  font: inherit; color: var(--encre); background: transparent; border: 1px solid transparent;
+  border-radius: 10px;
+}
+.parcours-etape { width: 128px; padding: 6px 6px 8px; cursor: pointer; }
 .parcours-etape:hover { background: var(--surface-bleutee); }
 .parcours-etape.indisponible { cursor: default; color: var(--encre-pale); }
 .parcours-etape.indisponible:hover { background: transparent; }
-.parcours-etape[aria-current="step"] { background: var(--action-pale); box-shadow: inset 0 0 0 1px var(--action); }
+.parcours-etape[aria-current="step"] { background: #e6f4ea; border-color: #9fd3ae; }
 .parcours-numero {
-  flex: none; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 0.82rem; font-weight: 600; border: 2px solid var(--trait-fort); color: var(--encre-pale); box-sizing: border-box;
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  border: 2px solid var(--trait-fort); background: var(--surface); color: var(--encre-pale);
+  font-weight: 700; font-size: 0.95rem; margin-bottom: 6px;
 }
-.parcours-etape.faite .parcours-numero { background: var(--succes); border-color: var(--succes); color: #fff; }
-.parcours-etape.courante .parcours-numero { border-color: var(--attente); color: var(--attente); }
+.parcours-etape.faite .parcours-numero { background: var(--succes); border-color: var(--succes); color: #fff; font-size: 1.05rem; }
+.parcours-etape.courante .parcours-numero { border-color: var(--attente); color: var(--attente); box-shadow: 0 0 0 4px rgba(180, 120, 20, 0.12); }
 .parcours-etape.echec .parcours-numero { background: var(--alerte); border-color: var(--alerte); color: #fff; }
 .parcours-nom { display: block; font-weight: 600; font-size: 0.92rem; }
-.parcours-detail { display: block; font-size: 0.78rem; color: var(--encre-douce); }
+.parcours-detail { display: block; font-size: 0.74rem; color: var(--encre-douce); line-height: 1.3; margin-top: 2px; }
 .parcours-etape.courante .parcours-detail { color: var(--attente); }
 .parcours-etape.echec .parcours-detail { color: var(--alerte); }
-.parcours-porte {
-  flex: 0 1 74px; display: flex; align-items: center; justify-content: center; gap: 6px;
-  font: 500 0.75rem var(--police-code); color: var(--encre-pale);
+/* Le trait de liaison, aligné sur le centre des pastilles */
+.parcours-lien { flex: 1 1 24px; min-width: 18px; height: 3px; border-radius: 2px; background: var(--trait); margin-top: var(--centre); }
+.parcours-lien.fait { background: var(--succes); }
+/* Décisions humaines */
+.parcours-porte { width: 74px; padding: 6px 2px; font-size: 0.8rem; color: var(--encre-pale); }
+.parcours-porte .losange {
+  width: 18px; height: 18px; transform: rotate(45deg); border: 2px solid var(--trait-fort);
+  background: var(--surface); box-sizing: border-box; margin: 10px 0 12px;
 }
-.parcours-porte .losange { width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid var(--trait-fort); box-sizing: border-box; }
+.parcours-porte-nom { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 0.78rem; }
 .parcours-porte.attend { color: var(--porte); }
-.parcours-porte.attend .losange { background: var(--porte); border-color: var(--porte); }
+.parcours-porte.attend .losange { background: var(--porte); border-color: var(--porte); box-shadow: 0 0 0 4px rgba(91, 75, 180, 0.15); }
 .parcours-porte.ouverte { color: var(--succes); }
 .parcours-porte.ouverte .losange { background: var(--succes); border-color: var(--succes); }
 .parcours-porte.fermee { color: var(--alerte); }
@@ -644,3 +658,45 @@ h2.titre-mono { font-size: 1.1rem; }
 .barre-pied { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .barre-pied a.bouton { text-decoration: none; }
 @media (max-width: 860px) { .barre-pied { flex-direction: row; } }
+
+/* --- Recette (lot 3) ------------------------------------------------------ */
+.choix-statut { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.choix-statut button {
+  font: inherit; font-size: 0.9rem; padding: 9px 6px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--trait-fort); background: var(--surface); color: var(--encre-douce);
+}
+.choix-statut button[aria-checked="true"] { color: #fff; font-weight: 600; border-color: transparent; }
+.choix-statut button.ton-succes[aria-checked="true"] { background: var(--succes); }
+.choix-statut button.ton-alerte[aria-checked="true"] { background: var(--alerte); }
+.choix-statut button.ton-attente[aria-checked="true"] { background: var(--attente); }
+.choix-statut button.ton-neutre[aria-checked="true"] { background: var(--encre-pale); }
+.vignettes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.vignettes figure { margin: 0; width: 120px; font-size: 0.75rem; color: var(--encre-pale); }
+.vignettes img { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--trait); display: block; background: var(--surface-bleutee); }
+.vignettes figcaption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.vignette-vide { width: 120px; height: 80px; border-radius: 6px; background: var(--surface-bleutee); display: grid; place-items: center; }
+.passage { border: 1px solid var(--trait); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.carte-anomalie { border: 1px solid var(--trait); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; background: var(--surface); }
+.proposition-agent { border-left: 3px solid var(--action); background: var(--surface-bleutee); border-radius: 0 8px 8px 0; padding: 8px 12px; display: grid; gap: 3px; }
+.actions-anomalie { border-top: 1px dashed var(--trait); padding-top: 8px; }
+.cloture { border-top: 1px solid var(--trait); }
+.reserves { margin: 0; padding-left: 20px; font-size: 0.9rem; }
+@media (max-width: 600px) { .choix-statut { grid-template-columns: repeat(2, 1fr); } }
+.bouton-icone-texte { display: inline-flex; align-items: center; gap: 7px; }
+/* Le trait passe jusqu'aux pastilles : il se glisse sous la marge des étapes voisines */
+.parcours-etape, .parcours-porte { position: relative; z-index: 1; }
+.parcours-lien { position: relative; z-index: 0; }
+.parcours-etape + .parcours-lien { margin-left: -44px; }
+.parcours-porte + .parcours-lien { margin-left: -26px; }
+.parcours-lien:has(+ .parcours-etape) { margin-right: -44px; }
+.parcours-lien:has(+ .parcours-porte) { margin-right: -26px; }
+.parcours-etape[aria-current="step"] { z-index: 2; }
+@media (max-width: 1280px) {
+  .parcours-etape { width: 104px; }
+  .parcours-porte { width: 62px; }
+  .parcours-etape + .parcours-lien { margin-left: -32px; }
+  .parcours-porte + .parcours-lien { margin-left: -20px; }
+  .parcours-lien:has(+ .parcours-etape) { margin-right: -32px; }
+  .parcours-lien:has(+ .parcours-porte) { margin-right: -20px; }
+}
+.vignette-toile { width: 120px; height: 80px; border-radius: 6px; border: 1px solid var(--trait); display: block; background: var(--surface-bleutee); }

@@ -1,7 +1,7 @@
 """Modèle de données (docs/specifications.md §11)."""
 from datetime import datetime, timezone
 
-from sqlalchemy import (Boolean, CheckConstraint, DateTime, ForeignKey,
+from sqlalchemy import (Boolean, CheckConstraint, DateTime, ForeignKey, LargeBinary,
                         Integer, String, Text, UniqueConstraint)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,12 +12,17 @@ ROLES = ("ANALYSTE", "SUPERVISEUR", "ADMIN")
 
 STATUTS_MISSION = (
     "ANALYSE_EN_COURS", "CLARIFICATION", "REECRITURE", "ATTENTE_PV1",
-    "CONCEPTION", "ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE",
+    "CONCEPTION", "ATTENTE_PV2", "VALIDEE", "EN_RECETTE", "CLOTUREE", "RESERVES_LEVEES",
     "A_CORRIGER", "ECHEC_ANALYSE",
 )
 STATUTS_CAS = ("PRET", "INCOMPLET", "A_CLARIFIER")
 STATUTS_TEST = ("PASS", "FAIL", "BLOCKED", "NOT_RUN")
 ETATS_TACHE = ("EN_ATTENTE", "EN_COURS", "TERMINEE", "ECHEC")
+# Recette (lot 3)
+GRAVITES_ANOMALIE = ("Bloquante", "Critique", "Majeure", "Mineure")
+REPRODUCTIBILITES = ("Systématique", "Intermittente", "Non reproductible", "Non déterminée")
+STATUTS_ANOMALIE = ("OUVERTE", "CORRIGEE", "FERMEE", "REJETEE")
+DECISIONS_CLOTURE = ("CLOTURE", "CLOTURE_AVEC_RESERVES")
 
 
 def maintenant():
@@ -288,10 +293,13 @@ class Execution(Base):
 
 
 class Preuve(Base):
+    """RA-31 : capture d'écran d'une exécution, conservée en base avec son empreinte."""
     __tablename__ = "preuve"
     id: Mapped[int] = mapped_column(primary_key=True)
     execution_id: Mapped[int] = mapped_column(ForeignKey("execution.id"), index=True)
-    chemin: Mapped[str] = mapped_column(Text)
+    nom: Mapped[str] = mapped_column(String(255), default="")
+    chemin: Mapped[str | None] = mapped_column(Text)        # ancien stockage sur disque (inutilisé)
+    contenu: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     type_mime: Mapped[str] = mapped_column(String(50))
     taille: Mapped[int] = mapped_column(Integer)
     empreinte: Mapped[str] = mapped_column(String(64))
@@ -299,14 +307,68 @@ class Preuve(Base):
 
 
 class Anomalie(Base):
+    """RA-30, RA-60 à RA-62 : anomalie ouverte par un échec, qualifiée par AG-09
+    (proposition) puis par un humain (gravité retenue)."""
     __tablename__ = "anomalie"
     id: Mapped[int] = mapped_column(primary_key=True)
+    mission_id: Mapped[int | None] = mapped_column(ForeignKey("mission.id"), index=True)
+    code: Mapped[str | None] = mapped_column(String(20))
     cas_id: Mapped[int] = mapped_column(ForeignKey("cas_test.id"), index=True)
     execution_id: Mapped[int | None] = mapped_column(ForeignKey("execution.id"))
+    titre: Mapped[str] = mapped_column(Text, default="", server_default="")
     description: Mapped[str] = mapped_column(Text)
-    gravite: Mapped[str] = mapped_column(String(20), default="Majeure")
+    # Gravité retenue par l'humain (vide tant que l'anomalie n'est pas qualifiée)
+    gravite: Mapped[str | None] = mapped_column(String(20), default=None)
+    reproductibilite: Mapped[str | None] = mapped_column(String(30))
+    # Proposition d'AG-09
+    etat_agent: Mapped[str | None] = mapped_column(String(20))   # EN_COURS, PROPOSEE, ECHEC
+    gravite_proposee: Mapped[str | None] = mapped_column(String(20))
+    reproductibilite_proposee: Mapped[str | None] = mapped_column(String(30))
+    titre_propose: Mapped[str | None] = mapped_column(Text)
+    justification_agent: Mapped[str | None] = mapped_column(Text)
+    erreur_agent: Mapped[str | None] = mapped_column(Text)
+    # Qualification humaine
+    qualifie_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    qualifie_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    motif_requalification: Mapped[str | None] = mapped_column(Text)
+    # Cycle de vie
     statut: Mapped[str] = mapped_column(String(20), default="OUVERTE")
+    motif_statut: Mapped[str | None] = mapped_column(Text)
+    cree_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    corrigee_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fermee_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    execution_fermeture_id: Mapped[int | None] = mapped_column(ForeignKey("execution.id"))
+    __table_args__ = (
+        CheckConstraint(_dans("statut", STATUTS_ANOMALIE), name="ck_anomalie_statut"),
+        CheckConstraint("gravite IS NULL OR " + _dans("gravite", GRAVITES_ANOMALIE),
+                        name="ck_anomalie_gravite"),
+        UniqueConstraint("mission_id", "code", name="uq_anomalie_code"),
+    )
+
+
+class ClotureRecette(Base):
+    """RA-63 : décision de clôture de la recette, avec ou sans réserves."""
+    __tablename__ = "cloture_recette"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mission_id: Mapped[int] = mapped_column(ForeignKey("mission.id"), unique=True)
+    version_id: Mapped[int] = mapped_column(ForeignKey("version_exigence.id"))
+    decision: Mapped[str] = mapped_column(String(30))
+    commentaire: Mapped[str] = mapped_column(Text, default="")
+    reserves: Mapped[str] = mapped_column(Text, default="[]")      # JSON figé à la décision
+    # RA-64 : périmètre du suivi des réserves (identifiants des cas, codes des anomalies)
+    cas_reserve: Mapped[str] = mapped_column(Text, default="[]")
+    anomalies_reserve: Mapped[str] = mapped_column(Text, default="[]")
+    decideur_id: Mapped[int] = mapped_column(ForeignKey("utilisateur.id"))
+    auto_validation: Mapped[bool] = mapped_column(Boolean, default=False)
+    decide_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # RA-65 : levée des réserves (décision distincte ; la clôture, elle, ne change pas)
+    levee_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    levee_par_id: Mapped[int | None] = mapped_column(ForeignKey("utilisateur.id"))
+    levee_auto_validation: Mapped[bool | None] = mapped_column(Boolean)
+    levee_commentaire: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (CheckConstraint(_dans("decision", DECISIONS_CLOTURE),
+                                      name="ck_cloture_decision"),)
 
 
 class EntreeJournal(Base):
@@ -330,6 +392,8 @@ class TacheIA(Base):
     mission_id: Mapped[int] = mapped_column(ForeignKey("mission.id"), index=True)
     version_id: Mapped[int] = mapped_column(ForeignKey("version_exigence.id"))
     type: Mapped[str] = mapped_column(String(30))
+    # Objet visé par la tâche quand ce n'est pas la version (ex. anomalie pour AG-09)
+    cible_id: Mapped[int | None] = mapped_column(Integer)
     etat: Mapped[str] = mapped_column(String(20), default="EN_ATTENTE")
     erreur: Mapped[str | None] = mapped_column(Text)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)

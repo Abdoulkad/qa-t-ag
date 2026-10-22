@@ -111,6 +111,14 @@ CT-003 : valeurs limites — 7 caractères, sous la borne de 8.
 """
 
 
+QUALIFICATION_IA = """## Anomalie
+- **Titre** : Le lien expiré reste accepté au-delà de 30 minutes
+- **Gravité** : Critique
+- **Reproductibilité** : Non déterminée
+- **Justification** : Le résultat attendu est le message « Lien expiré ». Le testeur obtient le formulaire de saisie, ce qui contredit CA-01. Une seule exécution en échec est disponible.
+"""
+
+
 class IAFactice:
     """Remplace le réseau : enregistre les appels, renvoie une réponse préparée
     selon l'agent appelé (revue, réécriture ou conception)."""
@@ -118,7 +126,7 @@ class IAFactice:
     def __init__(self):
         self.appels = []
         self.reponses = {"revue": RAPPORT_IA, "reecriture": REECRITURE_IA,
-                         "conception": CONCEPTION_IA}
+                         "conception": CONCEPTION_IA, "anomalie": QUALIFICATION_IA}
         self.statut_http = 200
         self.pauses = []
         self.pannes = []      # exceptions httpx levées aux premiers appels
@@ -136,6 +144,8 @@ class IAFactice:
         systeme = corps.get("system") or corps["messages"][0]["content"]
         if "Réécriture d'exigence" in systeme:
             return "reecriture"
+        if "AG-09" in systeme:
+            return "anomalie"
         if "AG-02" in systeme:
             return "conception"
         return "revue"
@@ -184,7 +194,8 @@ def schema():
 def base_vide():
     tables = ("preuve, anomalie, execution, trace, cas_test, critere_acceptation, "
               "question_metier, defaut, decision_porte, tache_ia, journal, version_exigence, "
-              "participant, mission, config_ia, utilisateur, organisation, tentative_connexion")
+              "participant, cloture_recette, mission, config_ia, utilisateur, organisation, "
+              "tentative_connexion")
     with moteur.begin() as c:
         # Les tests seuls contournent la protection du journal, pour repartir à vide
         c.execute(text("ALTER TABLE journal DISABLE TRIGGER USER"))

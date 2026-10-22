@@ -117,6 +117,7 @@ const ORDRE: StatutMission[] = [
 function rang(statut: StatutMission): number {
   if (statut === "ECHEC_ANALYSE") return 0;
   if (statut === "A_CORRIGER") return -1;
+  if (statut === "RESERVES_LEVEES") return ORDRE.indexOf("CLOTUREE");
   return ORDRE.indexOf(statut);
 }
 

@@ -9,6 +9,7 @@ Trois tâches, chacune = un agent IA + un contrôle par script :
 - ANALYSE    (AG-01)  : revue de l'exigence      -> controler_revue.py
 - REECRITURE           : exigence réécrite         -> verifier_reecriture.py
 - CONCEPTION (AG-02/03): cas de test + traçabilité -> controler_cas.py
+- ANOMALIE   (AG-09)  : qualification proposée    -> controler_qualification.py
 """
 import threading
 
@@ -19,9 +20,8 @@ from . import journal, regles, scripts_qa
 from .config import parametres
 from .db import SessionLocale
 from .ia import agents, fournisseurs
-from .models import (CasTest, ConfigIA, CritereAcceptation, Defaut, Mission, QuestionMetier,
-                     RegleMetier,
-                     TacheIA, Trace, VersionExigence, maintenant)
+from .models import (Anomalie, CasTest, ConfigIA, CritereAcceptation, Defaut, Execution, Mission,
+                     QuestionMetier, RegleMetier, TacheIA, Trace, VersionExigence, maintenant)
 
 # Statut de mission pendant la tâche -> statut si la tâche échoue
 REPLI_SUR_ECHEC = {
@@ -31,9 +31,10 @@ REPLI_SUR_ECHEC = {
 }
 
 
-def lancer(db: Session, mission: Mission, version: VersionExigence, type_tache: str) -> TacheIA:
+def lancer(db: Session, mission: Mission, version: VersionExigence, type_tache: str,
+           cible_id: int | None = None) -> TacheIA:
     tache = TacheIA(organisation_id=mission.organisation_id, mission_id=mission.id,
-                    version_id=version.id, type=type_tache)
+                    version_id=version.id, type=type_tache, cible_id=cible_id)
     db.add(tache)
     db.commit()
     if parametres().mode_taches == "immediat":
@@ -55,8 +56,8 @@ def executer(tache_id: int) -> None:
         tache.etat = "EN_COURS"
         db.commit()
         try:
-            {"ANALYSE": _analyser, "REECRITURE": _reecrire,
-             "CONCEPTION": _concevoir}[tache.type](db, tache)
+            {"ANALYSE": _analyser, "REECRITURE": _reecrire, "CONCEPTION": _concevoir,
+             "ANOMALIE": _qualifier_anomalie}[tache.type](db, tache)
             tache.etat = "TERMINEE"
         except Exception as e:  # noqa: BLE001 — toute erreur est tracée, jamais avalée
             db.rollback()
@@ -67,6 +68,10 @@ def executer(tache_id: int) -> None:
             pendant, repli = REPLI_SUR_ECHEC.get(tache.type, (None, None))
             if repli and mission.statut == pendant:
                 mission.statut = repli
+            if tache.type == "ANOMALIE" and tache.cible_id:      # RA-60 : qualification à la main
+                anomalie = db.get(Anomalie, tache.cible_id)
+                if anomalie is not None:
+                    anomalie.etat_agent, anomalie.erreur_agent = "ECHEC", str(e)[:2000]
             journal.ajouter(db, tache.organisation_id, "%s_echec" % tache.type.lower(),
                             mission_id=mission.id, details={"erreur": str(e)[:300]})
         tache.termine_le = maintenant()
@@ -293,3 +298,38 @@ def _concevoir(db: Session, tache: TacheIA) -> None:
                                            "cas": len(controle["lignes"]),
                                            "controle": controle["code"],
                                            "ia": "%s/%s" % (config.fournisseur, config.modele)})
+
+
+def _qualifier_anomalie(db: Session, tache: TacheIA) -> None:
+    """AG-09 : propose titre, gravité, reproductibilité et justification d'une
+    anomalie ; controler_qualification.py vérifie le contrat. L'humain valide."""
+    anomalie = db.get(Anomalie, tache.cible_id)
+    mission = db.get(Mission, tache.mission_id)
+    version = db.get(VersionExigence, tache.version_id)
+    cas = db.get(CasTest, anomalie.cas_id)
+    config = _config(db, mission.organisation_id)
+    echecs = db.scalars(select(Execution).where(Execution.cas_id == cas.id,
+                                                Execution.statut == "FAIL")
+                        .order_by(Execution.id)).all()
+    references = set(scripts_qa.RE_REFERENCE.findall(cas.exigence or ""))
+    references |= {t.reference for t in db.scalars(select(Trace).where(Trace.cas_id == cas.id))}
+    regles_cas = [{"code": r.code, "texte": r.texte} for r in version.regles
+                  if r.code in references]
+    criteres_cas = [{"code": c.code, "texte": c.texte} for c in version.criteres
+                    if c.code in references]
+    consigne, faits = agents.consigne_anomalie(cas, echecs, regles_cas, criteres_cas)
+
+    def controler(sortie):
+        return scripts_qa.analyser_qualification(sortie, len(echecs), faits)
+    _, q, _ = _generer_au_format(config, agents.prompt_skill("qa-qualification-anomalie"),
+                                 consigne, controler)
+    anomalie.titre_propose = q["titre"]
+    anomalie.gravite_proposee = q["gravite"]
+    anomalie.reproductibilite_proposee = q["reproductibilite"]
+    anomalie.justification_agent = q["justification"]
+    anomalie.etat_agent, anomalie.erreur_agent = "PROPOSEE", None
+    journal.ajouter(db, mission.organisation_id, "anomalie_proposee", mission_id=mission.id,
+                    agent="AG-09", details={
+                        "anomalie": anomalie.code, "gravite": q["gravite"],
+                        "reproductibilite": q["reproductibilite"],
+                        "ia": "%s/%s" % (config.fournisseur, config.modele)})
