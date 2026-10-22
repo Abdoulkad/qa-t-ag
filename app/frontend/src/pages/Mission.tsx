@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, type EntreeJournal, type Mission, type Version } from "../api";
 import { MessageErreur, PastilleMission, useAction, useDonnees, useSuiviTache } from "../composants";
@@ -21,6 +21,8 @@ const LIBELLE_TACHE: Record<string, string> = {
   CONCEPTION: "L'agent AG-02 conçoit les cas de test",
   ANOMALIE: "L'agent AG-09 qualifie une anomalie",
 };
+
+const TRAIT = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
 type Etape = EtapeExigence | "concevoir" | "recette";
 type Vue = Etape | "tracabilite" | "journal";
@@ -87,8 +89,12 @@ export default function MissionPage() {
               ))}
             </select>
           )}
-          <button className="bouton" aria-pressed={vueActive === "tracabilite"} onClick={() => setVue("tracabilite")}>Traçabilité</button>
-          <button className="bouton" aria-pressed={vueActive === "journal"} onClick={() => setVue("journal")}>Journal</button>
+          <button className="bouton bouton-icone-texte" aria-pressed={vueActive === "tracabilite"} onClick={() => setVue("tracabilite")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5" {...TRAIT} /><circle cx="18" cy="6" r="2.5" {...TRAIT} /><circle cx="12" cy="18" r="2.5" {...TRAIT} /><path d="M7.5 8 11 15.8M16.5 8 13 15.8" {...TRAIT} /></svg>
+            Traçabilité</button>
+          <button className="bouton bouton-icone-texte" aria-pressed={vueActive === "journal"} onClick={() => setVue("journal")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" {...TRAIT} /><path d="M14 3v5h5M9 12h7M9 16h5" {...TRAIT} /></svg>
+            Journal</button>
         </div>
       </div>
 
@@ -165,32 +171,56 @@ function Parcours({ mission: m, version: v, active, choisir }: {
         : m.statut === "CLOTUREE" ? m.prochaine_action
         : m.statut === "RESERVES_LEVEES" ? "Clôturée · réserves levées" : "Exécution des cas" },
   ];
+  // Les décisions humaines, posées sur le trait entre deux étapes (losanges)
   const porte = (nom: "PV-1" | "PV-2", attente: number) => {
     const d = decision(nom);
     const etat = d?.decision === "REJETE" ? "fermee" : phase > attente || d?.decision === "APPROUVE" ? "ouverte"
       : m.porte_en_attente === nom ? "attend" : "";
-    return (
-      <div key={nom} className={"parcours-porte " + etat} title={"Human Gate " + nom}>
-        <span className="losange" aria-hidden="true" />{nom}
+    return { cle: nom, fait: etat === "ouverte", noeud: (
+      <div key={nom} className={"parcours-porte " + etat} title={`Décision humaine ${nom}`}>
+        <span className="losange" aria-hidden="true" />
+        <span className="parcours-porte-nom">{nom}</span>
+        <span className="parcours-detail">{etat === "ouverte" ? "Approuvé" : etat === "fermee" ? "Rejeté" : etat === "attend" ? "À décider" : "Décision"}</span>
       </div>
-    );
+    ) };
   };
-  const rendu = etapes.map((e, i) => {
+  const cloture = (() => {
+    const etat = m.statut === "RESERVES_LEVEES" || m.statut === "CLOTUREE" ? "ouverte"
+      : m.statut === "EN_RECETTE" ? "attend" : "";
+    const detail = m.statut === "RESERVES_LEVEES" ? "Réserves levées"
+      : m.statut === "CLOTUREE" ? (m.prochaine_action.startsWith("Réserves") || m.prochaine_action === "Lever les réserves" ? "Avec réserves" : "Clôturée")
+      : m.statut === "EN_RECETTE" ? "À décider" : "Décision";
+    return { cle: "cloture", fait: etat === "ouverte", noeud: (
+      <div key="cloture" className={"parcours-porte " + etat} title="Décision humaine : clôture de la recette">
+        <span className="losange" aria-hidden="true" />
+        <span className="parcours-porte-nom">Clôture</span>
+        <span className="parcours-detail">{detail}</span>
+      </div>
+    ) };
+  })();
+  const noeuds = etapes.map((e, i) => {
     const etat = e.echec ? "echec" : phase > i ? "faite" : phase === i ? "courante" : "";
     const contenu = (
       <>
         <span className="parcours-numero" aria-hidden="true">{etat === "faite" ? "✓" : etat === "echec" ? "!" : i + 1}</span>
-        <span><span className="parcours-nom">{e.nom}</span><span className="parcours-detail">{e.detail}</span></span>
+        <span className="parcours-nom">{e.nom}</span>
+        <span className="parcours-detail">{e.detail}</span>
       </>
     );
-    return e.dispo
+    return { cle: e.cle, fait: etat === "faite", noeud: e.dispo
       ? <button key={e.cle} type="button" className={"parcours-etape " + etat} aria-current={active === e.cle ? "step" : undefined}
                 onClick={() => choisir(e.cle)}>{contenu}</button>
-      : <div key={e.cle} className={"parcours-etape indisponible " + etat}>{contenu}</div>;
+      : <div key={e.cle} className={"parcours-etape indisponible " + etat}>{contenu}</div> };
   });
+  const suite = [noeuds[0], noeuds[1], noeuds[2], porte("PV-1", 2), noeuds[3], porte("PV-2", 3), noeuds[4], cloture];
   return (
-    <nav className="parcours" aria-label="Étapes de la mission">
-      {rendu[0]}{rendu[1]}{rendu[2]}{porte("PV-1", 2)}{rendu[3]}{porte("PV-2", 3)}{rendu[4]}
+    <nav className="parcours" aria-label="Étapes de la mission et décisions humaines">
+      {suite.map((n, i) => (
+        <Fragment key={n.cle}>
+          {i > 0 && <span className={"parcours-lien" + (suite[i - 1].fait ? " fait" : "")} aria-hidden="true" />}
+          {n.noeud}
+        </Fragment>
+      ))}
     </nav>
   );
 }
