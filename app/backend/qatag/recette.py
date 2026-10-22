@@ -204,7 +204,9 @@ def changer_statut(db: Session, u: Utilisateur, m: Mission, anomalie_id: int, ac
         a.corrigee_le = maintenant()
     elif arrivee == "OUVERTE":
         a.corrigee_le = None
-    journal.ajouter(db, m.organisation_id, "anomalie_%s" % arrivee.lower(), mission_id=m.id,
+    evenement = {"CORRIGEE": "anomalie_corrigee", "REJETEE": "anomalie_rejetee",
+                 "OUVERTE": "anomalie_reouverte"}[arrivee]
+    journal.ajouter(db, m.organisation_id, evenement, mission_id=m.id,
                     acteur_id=u.id, details={"anomalie": a.code, "motif": motif})
     db.commit()
     return a

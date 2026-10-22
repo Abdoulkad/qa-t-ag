@@ -253,3 +253,14 @@ export interface Tracabilite {
   cas_sans_reference: string[];
   par_technique: Record<string, number>;
 }
+
+/** Image servie derrière l'authentification (capture de recette) : URL locale
+ *  à révoquer par l'appelant (URL.revokeObjectURL). */
+export async function imageProtegee(chemin: string): Promise<string> {
+  const entetes: Record<string, string> = {};
+  const j = jeton();
+  if (j) entetes["Authorization"] = "Bearer " + j;
+  const r = await fetch("/api" + chemin, { headers: entetes });
+  if (!r.ok) throw new ErreurApi(r.status, "Capture indisponible");
+  return URL.createObjectURL(await r.blob());
+}

@@ -644,3 +644,27 @@ h2.titre-mono { font-size: 1.1rem; }
 .barre-pied { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .barre-pied a.bouton { text-decoration: none; }
 @media (max-width: 860px) { .barre-pied { flex-direction: row; } }
+
+/* --- Recette (lot 3) ------------------------------------------------------ */
+.choix-statut { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.choix-statut button {
+  font: inherit; font-size: 0.9rem; padding: 9px 6px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--trait-fort); background: var(--surface); color: var(--encre-douce);
+}
+.choix-statut button[aria-checked="true"] { color: #fff; font-weight: 600; border-color: transparent; }
+.choix-statut button.ton-succes[aria-checked="true"] { background: var(--succes); }
+.choix-statut button.ton-alerte[aria-checked="true"] { background: var(--alerte); }
+.choix-statut button.ton-attente[aria-checked="true"] { background: var(--attente); }
+.choix-statut button.ton-neutre[aria-checked="true"] { background: var(--encre-pale); }
+.vignettes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.vignettes figure { margin: 0; width: 120px; font-size: 0.75rem; color: var(--encre-pale); }
+.vignettes img { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--trait); display: block; background: var(--surface-bleutee); }
+.vignettes figcaption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.vignette-vide { width: 120px; height: 80px; border-radius: 6px; background: var(--surface-bleutee); display: grid; place-items: center; }
+.passage { border: 1px solid var(--trait); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.carte-anomalie { border: 1px solid var(--trait); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; background: var(--surface); }
+.proposition-agent { border-left: 3px solid var(--action); background: var(--surface-bleutee); border-radius: 0 8px 8px 0; padding: 8px 12px; display: grid; gap: 3px; }
+.actions-anomalie { border-top: 1px dashed var(--trait); padding-top: 8px; }
+.cloture { border-top: 1px solid var(--trait); }
+.reserves { margin: 0; padding-left: 20px; font-size: 0.9rem; }
+@media (max-width: 600px) { .choix-statut { grid-template-columns: repeat(2, 1fr); } }

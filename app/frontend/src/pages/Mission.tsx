@@ -6,17 +6,20 @@ import { date, EVENEMENTS } from "../libelles";
 import CasTests from "./mission/CasTests";
 import Exigence, { traitee, type EtapeExigence } from "./mission/Exigence";
 import Porte from "./mission/Porte";
+import Recette from "./mission/Recette";
 import Tracabilite from "./mission/Tracabilite";
 import { useComplementFil } from "../Cadre";
 
 const NOM_TACHE: Record<string, string> = {
   ANALYSE: "L'analyse (AG-01)", REECRITURE: "La réécriture", CONCEPTION: "La conception (AG-02)",
+  ANOMALIE: "La qualification d'une anomalie (AG-09)",
 };
 
 const LIBELLE_TACHE: Record<string, string> = {
   ANALYSE: "L'agent AG-01 analyse l'exigence",
   REECRITURE: "L'agent réécrit l'exigence à partir de vos réponses",
   CONCEPTION: "L'agent AG-02 conçoit les cas de test",
+  ANOMALIE: "L'agent AG-09 qualifie une anomalie",
 };
 
 type Etape = EtapeExigence | "concevoir" | "recette";
@@ -29,6 +32,7 @@ function etapeParDefaut(m: Mission, v: Version): Etape {
     case "CLARIFICATION": return v.defauts.some((d) => !d.validation) ? "analyser" : "clarifier";
     case "REECRITURE": case "ATTENTE_PV1": return "reecrire";
     case "A_CORRIGER": return v.texte_reecrit ? "reecrire" : "analyser";
+    case "VALIDEE": case "EN_RECETTE": case "CLOTUREE": return "recette";
     default: return "concevoir";
   }
 }
@@ -96,7 +100,7 @@ export default function MissionPage() {
           vous pouvez aussi la quitter.
         </div>
       )}
-      {!occupe && m.derniere_tache?.etat === "ECHEC" && (
+      {!occupe && m.derniere_tache?.etat === "ECHEC" && m.derniere_tache.type !== "ANOMALIE" && (
         <div className="message-erreur" role="alert">
           <strong>{NOM_TACHE[m.derniere_tache.type] ?? "L'agent"} a échoué</strong>
           {m.derniere_tache.termine_le && <> le {date(m.derniere_tache.termine_le)}</>} :{" "}
@@ -118,10 +122,7 @@ export default function MissionPage() {
                       lancerTache={lancerTache} occupe={occupe} etape={vueActive} allerA={(e) => setVue(e)} />
           )}
           {vueActive === "concevoir" && <CasTests mission={m} historique={historique} recharger={recharger} />}
-          {vueActive === "recette" && (
-            <div className="vide"><strong>Recette</strong>L'exécution des cas, les preuves et le cahier de recette
-              arrivent au lot 3. En attendant, exportez le cahier des cas depuis l'étape Concevoir.</div>
-          )}
+          {vueActive === "recette" && <Recette mission={m} recharger={recharger} />}
           {vueActive === "tracabilite" && <Tracabilite missionId={m.id} />}
           {vueActive === "journal" && <JournalMission missionId={m.id} />}
         </div>
@@ -159,7 +160,9 @@ function Parcours({ mission: m, version: v, active, choisir }: {
       detail: v.texte_reecrit ? `${v.regles.length} règles · ${v.criteres.length} critères` : "Règles et critères" },
     { cle: "concevoir", nom: "Concevoir", dispo: m.cas.total > 0 || phase >= 3, echec: !!m.en_echec && m.statut === "CONCEPTION",
       detail: m.cas.total ? `${m.cas.total} cas · ${m.cas.prets} prêts` : "Cas de test" },
-    { cle: "recette", nom: "Recette", dispo: phase >= 4, detail: "Lot 3 · exécution" },
+    { cle: "recette", nom: "Recette", dispo: phase >= 4,
+      detail: m.statut === "EN_RECETTE" ? m.prochaine_action.replace("Recette : ", "")
+        : m.statut === "CLOTUREE" ? "Clôturée" : "Exécution des cas" },
   ];
   const porte = (nom: "PV-1" | "PV-2", attente: number) => {
     const d = decision(nom);
@@ -205,8 +208,16 @@ function ProchaineEtape({ mission: m, version: v, occupe, aller, lancerTache }: 
         </div>
         {m.statut === "VALIDEE" && (
           <div className="panneau-corps discret-texte">
-            Les cas sont validés et figés. Exportez le cahier des cas depuis l'étape{" "}
+            Les cas sont validés et figés. Exécutez-les à l'étape{" "}
+            <button className="lien" onClick={() => aller("recette")}>Recette</button> ; le cahier des cas
+            (zones d'exécution vides) reste disponible à l'étape{" "}
             <button className="lien" onClick={() => aller("concevoir")}>Concevoir</button>.
+          </div>
+        )}
+        {m.statut === "EN_RECETTE" && (
+          <div className="panneau-corps discret-texte">
+            Chaque échec ouvre une anomalie qualifiée par AG-09, puis par vous. Clôturez la recette à
+            l'étape <button className="lien" onClick={() => aller("recette")}>Recette</button>.
           </div>
         )}
       </section>
@@ -414,7 +425,9 @@ function DetailsJournal({ e }: { e: EntreeJournal }) {
   const morceaux: string[] = [];
   if (d.question) morceaux.push(String(d.question));
   if (d.critere) morceaux.push(String(d.critere));
-  if (d.cas) morceaux.push(String(d.cas));
+  if (d.anomalie) morceaux.push(String(d.anomalie));
+  if (d.cas) morceaux.push(String(d.cas) + (d.statut ? " · " + String(d.statut) : "") + (d.passage ? ` · passage ${d.passage}` : ""));
+  if (d.gravite) morceaux.push(String(d.gravite));
   if (d.motif) morceaux.push("motif : " + String(d.motif));
   if (d.commentaire) morceaux.push("« " + String(d.commentaire) + " »");
   if (d.defauts !== undefined) morceaux.push(`${d.defauts} défaut(s), clarté ${d.score_clarte}/100`);
