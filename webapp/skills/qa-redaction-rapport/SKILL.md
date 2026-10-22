@@ -1,7 +1,7 @@
 ---
 name: qa-redaction-rapport
 description: "Use when drafting the narrative parts of a test report after execution (context, objectives, synthesis, per-case recommendations, conclusion and go-live opinion) strictly from recorded facts, for human validation."
-version: 0.1.0
+version: 0.2.0
 metadata:
   hermes:
     tags: [qa, qa-t-ag, recette, rapport, ag11]
@@ -33,20 +33,40 @@ personne, aucun jargon technique inutile.
 
 ## Ce que tu rédiges
 
-1. **Contexte** (2 à 5 phrases) : l'objet de la campagne et ce qu'elle couvre
-   (fonctionnalité, règles et critères concernés). Si plusieurs passages ont
-   été nécessaires après des anomalies, dis qu'il s'agit aussi de tests de
-   confirmation. N'invente ni projet, ni équipe, ni date, ni historique.
-2. **Objectifs** (1 à 8 puces) : les points vérifiés, chacun relié à un
-   critère ou une règle (« Vérifier que … (CA-01) »).
-3. **Synthèse** : ce qui a été vérifié et le résultat global, avec les
-   chiffres exacts fournis (« Sur les quatre (04) cas de test… »). Cite les
-   anomalies par leur code.
+1. **Contexte** (un ou deux paragraphes, 2 à 5 phrases). Ouvre par la nature
+   du document et de la campagne, telle que les faits l'indiquent (« Nature de
+   la campagne ») : « Le présent document constitue le rapport de test de la
+   fonctionnalité « … ». » ou, s'il y a eu des cas rejoués après correction,
+   « … un rapport de tests de confirmation faisant suite à … ». Puis dis sur
+   quoi la campagne porte : la fonctionnalité, les règles (RG-n) et critères
+   (CA-n) concernés, en reprenant leur sens métier. N'invente ni projet, ni
+   équipe, ni date, ni historique.
+2. **Objectifs** (2 à 8 puces). Chaque puce commence par un verbe à
+   l'infinitif et nomme un comportement observable, relié à son critère ou à
+   sa règle : « Vérifier que le lien de réinitialisation est refusé au-delà
+   de 30 minutes (CA-01) ». Ne recopie pas le critère en « Étant donné… » :
+   reformule ce qu'il vérifie.
+3. **Synthèse** (2 ou 3 paragraphes courts). Suis ce plan :
+   - « Dans le cadre de [la campagne], la fonctionnalité « … » a fait l'objet
+     de tests fonctionnels visant à vérifier les points suivants : », puis les
+     points vérifiés en puces (« - … ») ;
+   - le résultat chiffré exact (« Sur les quatre (04) cas de test, trois (03)
+     sont conformes aux résultats attendus et un (01) est en échec. ») ;
+   - les anomalies par leur code et leur gravité, et ce qu'elles empêchent ;
+     ou « Aucune défaillance n'a été constatée au cours de cette phase de
+     tests. »
 4. **Recommandations** : une puce par cas qui appelle une action
    (« - CT-001 : corriger ANO-001 puis rejouer le cas »). Rien pour un cas
    réussi sans remarque. S'il n'y a rien à recommander, écris « Aucune ».
-5. **Conclusion** : la conformité de la fonctionnalité aux exigences, puis
-   l'avis sur la mise en production, sur une ligne à part.
+5. **Conclusion** (un ou deux paragraphes). « À l'issue des tests, il ressort
+   que la fonctionnalité « … » est conforme / n'est pas encore conforme aux
+   exigences fonctionnelles définies [sur tel point]. » Puis l'avis motivé :
+   « L'avis est favorable à la mise en production, sous réserve de … » ou
+   « … défavorable tant que … ». Termine par la ligne d'avis.
+
+Écris les nombres comme dans les rapports de la DSI : en lettres suivies du
+chiffre sur deux positions, « trois (03) cas ». Les pourcentages entre
+parenthèses : « (75 %) ».
 
 ## L'avis — une seule valeur
 

@@ -33,6 +33,7 @@ RE_REFERENCE = re.compile(r"\b(?:CT|ANO|CA|RG)-\d+\b")
 RE_NOMBRE_CAS = re.compile(r"(?:\b|\()(\d+)\)?\s+cas\b", re.IGNORECASE)
 RE_NOMBRE_ANO = re.compile(r"(?:\b|\()(\d+)\)?\s+anomalies?\b", re.IGNORECASE)
 RE_POURCENT = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+RE_ENTRE_PARENTHESES = re.compile(r"\((\d{2})\)")   # « trois (03) », écriture DSI
 RE_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 RE_TELEPHONE = re.compile(r"(?<!\d)(?:\+?\d[\s.-]?){8,}\d(?!\d)")
 
@@ -133,6 +134,10 @@ def parser(texte: str, faits: dict):
     for n in RE_NOMBRE_ANO.findall(tout):
         if int(n) not in nb_ano:
             erreurs.append("« %s anomalie(s) » ne correspond à aucun compteur" % n)
+    deja = {int(n) for n in RE_NOMBRE_CAS.findall(tout) + RE_NOMBRE_ANO.findall(tout)}
+    for n in RE_ENTRE_PARENTHESES.findall(tout):
+        if int(n) not in comptes | nb_ano and int(n) not in deja:
+            erreurs.append("« (%s) » ne correspond à aucun compteur" % n)
     if total:
         proportions = {round(100 * faits[k] / total)
                        for k in ("executes", "PASS", "FAIL", "BLOCKED", "NOT_RUN")} | {100, 0}
@@ -182,6 +187,10 @@ La fonctionnalité n'est pas encore conforme sur le refus des liens expirés.
     assert parser(bon.replace("Favorable avec réserves", "Favorable"), faits)[1]
     assert parser(bon.replace("3 cas ont", "5 cas ont"), faits)[1]
     assert parser(bon.replace("(50 %)", "(60 %)"), faits)[1]
+    assert parser(bon.replace("Une anomalie reste", "Trois (07) sont conformes. Une anomalie reste"),
+                  faits)[1]
+    assert not parser(bon.replace("Une anomalie reste", "Deux (02) sont conformes. Une anomalie reste"),
+                      faits)[1]
     assert parser(bon.replace("ANO-001 puis", "ANO-009 puis"), faits)[1]
     assert parser(bon.replace("- CT-001 :", "- CT-007 :"), faits)[1]
     assert parser(bon.replace("## Synthèse", "## Résumé"), faits)[1]

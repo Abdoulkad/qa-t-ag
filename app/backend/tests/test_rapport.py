@@ -141,4 +141,6 @@ def test_cahier_sans_rapport_garde_ses_parties_factuelles(client, admin, ia):
     d = docx.Document(io.BytesIO(_cahier(client, admin, mid).content))
     texte = "\n".join(p.text for p in d.paragraphs)
     assert "Synthèse" in texte and "Avis sur la mise en production" not in texte
-    assert "4 cas : 3 réussis, 1 en échec" in texte
+    assert ("Sur les quatre (04) cas de test, trois (03) sont conformes aux résultats attendus, "
+            "un (01) en échec.") in texte
+    assert "Anomalie restant à traiter : ANO-001" in texte

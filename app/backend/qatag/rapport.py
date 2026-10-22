@@ -39,7 +39,12 @@ def faits(db: Session, m: Mission) -> tuple[dict, str]:
     cloture = db.scalar(select(ClotureRecette).where(ClotureRecette.mission_id == m.id))
     references = [r.code for r in v.regles] + [c.code for c in v.criteres]
 
-    lignes = ["## Mission %s — %s" % (m.reference, m.titre), ""]
+    rejoues = [c.code for c in cas if passages.get(c.id, 0) > 1]
+    nature = ("tests de confirmation : %s rejoué%s après la correction d'anomalies"
+              % (", ".join(rejoues), "s" if len(rejoues) > 1 else "") if rejoues
+              else "première exécution des cas validés à PV-2 (tests d'acceptance)")
+    lignes = ["## Mission %s — fonctionnalité « %s »" % (m.reference, m.titre),
+              "- Nature de la campagne : %s" % nature, ""]
     if v.texte_reecrit:
         lignes += ["## Exigence réécrite validée à PV-1", v.texte_reecrit, ""]
     if v.regles or v.criteres:

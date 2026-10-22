@@ -369,7 +369,8 @@ def test_cahier_brouillon_depuis_la_base(client, admin, ia):
     assert r.status_code == 200, r.text
     assert "_brouillon" in r.headers["content-disposition"]
     texte = _texte(r.content)
-    assert "Cahier de recette — mission M-001" in texte and "DOCUMENT DE TRAVAIL" in texte
+    assert "rapport de test de la fonctionnalité « US-042 »" in texte and "DOCUMENT DE TRAVAIL" in texte
+    assert "Références : mission M-001, version 1" in texte
     assert "Récapitulatif du test et recommandations" in texte and "ANO-001" in texte
     assert "☒  FAIL" in texte and "☒  PASS" in texte and "☒  NON EXÉCUTÉ" in texte
     assert "[CT-XXX]" not in texte and "[Décrire" not in texte      # gabarit entièrement rempli
@@ -390,7 +391,7 @@ def test_cahier_apres_cloture_et_journal(client, admin, ia):
     _cloturer(client, admin, mid, "CLOTURE")
     r = _cahier(client, admin, mid)
     assert "_brouillon" not in r.headers["content-disposition"]
-    assert "Recette clôturée sans réserve" in _texte(r.content)
+    assert "La recette a été clôturée sans réserve" in _texte(r.content)
     with SessionLocale() as db:
         e = db.scalar(select(EntreeJournal).where(
             EntreeJournal.evenement == "cahier_recette_exporte"))
@@ -470,7 +471,7 @@ def test_levee_des_reserves_apres_correction_et_nouveau_passage(client, admin, i
     r = _executer(client, admin, mid, cas["CT-001"]["id"], "PASS", "x")
     assert r.status_code == 409 and r.json()["regle"] == "RA-63"
     texte = _texte(_cahier(client, admin, mid).content)
-    assert "Réserves levées le" in texte and "Corrections vérifiées en 1.2.1" in texte
+    assert "Ces réserves ont été levées le" in texte and "Corrections vérifiées en 1.2.1" in texte
     with SessionLocale() as db:
         assert db.scalar(select(EntreeJournal).where(
             EntreeJournal.evenement == "reserves_levees")) is not None

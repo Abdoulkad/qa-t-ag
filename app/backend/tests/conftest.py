@@ -121,16 +121,21 @@ QUALIFICATION_IA = """## Anomalie
 
 REDACTION_IA = """## Contexte
 La campagne porte sur la réinitialisation du mot de passe : expiration du lien et longueur du nouveau mot de passe.
+Le présent document constitue le rapport de test de cette fonctionnalité, au terme de la première exécution des cas validés à PV-2.
 ## Objectifs
 - Vérifier le refus d'un lien expiré (CA-01).
 - Vérifier la longueur minimale du mot de passe (CA-02).
 ## Synthèse
+Dans le cadre de cette campagne, la fonctionnalité a fait l'objet de tests fonctionnels visant à vérifier les points suivants :
+- le refus d'un lien de réinitialisation expiré ;
+- le contrôle de la longueur du nouveau mot de passe.
 Sur les quatre (04) cas de test, 4 cas ont été exécutés : 3 cas réussis (75 %) et 1 cas en échec.
-L'anomalie ANO-001 reste ouverte.
+L'anomalie ANO-001 reste ouverte : un lien expiré est encore accepté.
 ## Recommandations
 - CT-001 : corriger ANO-001 puis rejouer le cas avant la mise en production.
 ## Conclusion
-La fonctionnalité est conforme sur la longueur du mot de passe ; le refus des liens expirés reste à corriger.
+À l'issue des tests, il ressort que la fonctionnalité est conforme aux exigences sur la longueur du mot de passe, mais pas encore sur le refus des liens expirés.
+L'avis est favorable à la mise en production, sous réserve de la correction de ANO-001 et d'un nouveau passage réussi du cas CT-001.
 - **Avis** : Favorable avec réserves
 """
 

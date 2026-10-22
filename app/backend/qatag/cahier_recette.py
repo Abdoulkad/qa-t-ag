@@ -17,7 +17,7 @@ import tempfile
 
 import docx
 from docx.oxml import OxmlElement
-from docx.shared import Cm
+from docx.shared import Cm, Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from sqlalchemy import select
@@ -108,6 +108,39 @@ def _apres(ancre, texte: str, modele, gras: bool = False):
     if texte:
         paragraphe.add_run(texte).bold = gras
     return paragraphe
+
+
+def _puce(ancre, texte: str, modele):
+    """Puce en retrait, au style du paragraphe modèle (le gabarit n'a pas de liste à puces)."""
+    p = _apres(ancre, "", modele)
+    p.paragraph_format.left_indent = Cm(0.9)
+    p.paragraph_format.first_line_indent = Cm(-0.45)
+    p.paragraph_format.space_after = Cm(0.1)
+    p.add_run("•  ")
+    p.add_run(texte)
+    return p
+
+
+def _bloc_texte(ancre, texte: str, modele):
+    """Paragraphes d'un texte rédigé ; les lignes « - … » deviennent des puces."""
+    for ligne in (x.strip() for x in texte.split("\n")):
+        if not ligne:
+            continue
+        if ligne[:2] in ("- ", "* ", "• "):
+            ancre = _puce(ancre, ligne[2:].strip(), modele)._element
+        else:
+            ancre = _apres(ancre, ligne, modele)._element
+    return ancre
+
+
+def _note(ancre, texte: str, modele):
+    """Mention discrète (traçabilité, validation) : petite, en italique, grise."""
+    p = _apres(ancre, "", modele)
+    run = p.add_run(texte)
+    run.italic = True
+    run.font.size = Pt(8.5)
+    run.font.color.rgb = RGBColor(0x59, 0x59, 0x59)
+    return p
 
 
 def _paragraphe(doc, debut: str, style: str | None = None):
@@ -219,36 +252,49 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
             for r in p.runs:
                 r.text = r.text.replace("[NOM DE L'ORGANISATION]", nom_org)
 
-    # Contexte
-    contexte = [
-        ("Cahier de recette — mission %s : %s" % (m.reference, m.titre), True),
-        ("Version %d de l'exigence, empreinte SHA-256 %s." % (v.numero, v.empreinte[:16]), False),
-        ("Cas validés à PV-2 le %s par %s%s." % (
-            pv2.decide_le.strftime("%d/%m/%Y"), _nom(db, pv2.decideur_id),
-            " (auto-validation)" if pv2.auto_validation else "") if pv2 else
-         "Cas non validés à PV-2.", False),
-        ("%d cas de test%s." % (len(cas), (", exécutés du %s au %s" % (
-            min(dates).strftime("%d/%m/%Y"), max(dates).strftime("%d/%m/%Y"))) if dates else ""),
-         False),
-        ("Testeur%s : %s." % ("s" if len(testeurs) > 1 else "",
-                              ", ".join(sorted(_nom(db, t) for t in testeurs)) or "—"), False),
-    ]
-    if not cloture:
-        contexte.append(("DOCUMENT DE TRAVAIL — recette en cours, non clôturée.", True))
-    if redaction:                                   # le récit d'abord, les repères ensuite
-        recit = [(x, False) for x in redaction["contexte"].split("\n") if x.strip()]
-        contexte = contexte[:1] + recit + contexte[1:]
+    # Contexte : le récit (rédigé et validé, sinon une présentation sobre), puis une
+    # note de traçabilité
+    rejoues = sum(1 for c in cas if passages[c.id] > 1)
+    periode = ("le %s" % min(dates).strftime("%d/%m/%Y") if dates and
+               min(dates).date() == max(dates).date() else
+               "du %s au %s" % (min(dates).strftime("%d/%m/%Y"), max(dates).strftime("%d/%m/%Y"))
+               if dates else "")
     ancre = _paragraphe(doc, "Contexte", "Heading 1")._element
-    for texte, gras in contexte:
-        ancre = _apres(ancre, texte, normal, gras)._element
+    if not cloture:
+        ancre = _apres(ancre, "DOCUMENT DE TRAVAIL — recette en cours, non clôturée.",
+                       normal, gras=True)._element
+    if redaction:
+        ancre = _bloc_texte(ancre, redaction["contexte"], normal)
+    else:
+        recit = ("Le présent document constitue le rapport de test de la fonctionnalité "
+                 "« %s ». Il rend compte de l'exécution des %s (%02d) cas de test validés "
+                 "à la Human Gate PV-2%s." % (m.titre, _en_lettres(len(cas)), len(cas),
+                                             ", menée %s" % periode if periode else ""))
+        if rejoues:
+            recit += (" %s (%02d) cas %s été rejoué%s après la correction d'anomalies : le "
+                      "rapport vaut aussi rapport de tests de confirmation." % (
+                          _en_lettres(rejoues).capitalize(), rejoues,
+                          "ont" if rejoues > 1 else "a", "s" if rejoues > 1 else ""))
+        ancre = _apres(ancre, recit, normal)._element
+    reference = "Références : mission %s, version %d de l'exigence (empreinte SHA-256 %s)" % (
+        m.reference, v.numero, v.empreinte[:16])
+    if pv2:
+        reference += ", cas validés à PV-2 le %s par %s%s" % (
+            pv2.decide_le.strftime("%d/%m/%Y"), _nom(db, pv2.decideur_id),
+            " (auto-validation)" if pv2.auto_validation else "")
+    if periode:
+        reference += ", exécution %s" % periode
+    reference += " ; testeur%s : %s." % ("s" if len(testeurs) > 1 else "",
+                                        ", ".join(sorted(_nom(db, t) for t in testeurs)) or "—")
+    _note(ancre, reference, normal)
 
-    # Objectifs : ceux du rapport validé, sinon les critères d'acceptation validés à PV-1
+    # Objectifs : ceux du rapport validé, sinon un objectif par critère validé à PV-1
     ancre = normal._element
     objectifs = (redaction["objectifs"] if redaction else
-                 ["%s : %s" % (c.code, c.texte) for c in criteres]) or \
-        ["Vérifier les cas de test validés à PV-2."]
+                 ["Vérifier le critère %s : %s" % (c.code, c.texte.rstrip(".")) for c in criteres]) \
+        or ["Vérifier les cas de test validés à PV-2."]
     for objectif in objectifs:
-        ancre = _apres(ancre, "•  %s" % objectif, normal)._element
+        ancre = _puce(ancre, objectif.rstrip(".") + ".", normal)._element
 
     # Exécution des tests : un bloc par cas, cloné depuis le modèle du gabarit
     titre_modele = _paragraphe(doc, "[CT-XXX]")
@@ -390,61 +436,80 @@ def exporter(db: Session, u: Utilisateur, m: Mission) -> tuple[bytes, str]:
     p_synthese.runs[0].text = "Synthèse"
     for run in p_synthese.runs[1:]:
         run._element.getparent().remove(run._element)
-    factuel = [
-        "%d cas : %d réussi%s, %d en échec, %d non testable%s, %d non exécuté%s." % (
-            len(cas), compte["PASS"], "s" * (compte["PASS"] > 1), compte["FAIL"],
-            compte["BLOCKED"], "s" * (compte["BLOCKED"] > 1),
-            compte["NOT_RUN"] + compte["aucun"], "s" * (compte["NOT_RUN"] + compte["aucun"] > 1)),
-    ]
-    if anomalies:
-        factuel.append("%d anomalie%s : %s." % (
-            len(anomalies), "s" * (len(anomalies) > 1),
-            " ; ".join("%s %s, %s" % (a.code, (a.gravite or "à qualifier").lower(),
-                                      LIBELLES_ANOMALIE[a.statut]) for a in anomalies)))
-    else:
-        factuel.append("Aucune anomalie.")
-    synthese = ([x for x in redaction["synthese"].split("\n") if x.strip()] + factuel
-                if redaction else factuel)
     ancre = titre_synthese
-    for texte in synthese:
-        ancre = _apres(ancre, texte, normal)._element
-
-    # Conclusion : texte validé et avis, puis la décision de clôture (faits)
-    conclusion = []
     if redaction:
-        conclusion += [x for x in redaction["conclusion"].split("\n") if x.strip()]
+        _bloc_texte(ancre, redaction["synthese"], normal)
+    else:
+        resultat = ("Les %s (%02d) cas de test exécutés sont conformes aux résultats attendus."
+                    % (_en_lettres(len(cas)), len(cas))
+                    if compte["PASS"] == len(cas) else
+                    "Sur les %s (%02d) cas de test, %s (%02d) %s conforme%s aux résultats attendus"
+                    % (_en_lettres(len(cas)), len(cas), _en_lettres(compte["PASS"]),
+                       compte["PASS"], "sont" if compte["PASS"] > 1 else "est",
+                       "s" if compte["PASS"] > 1 else "") +
+                    "".join(", %s (%02d) %s" % (_en_lettres(n), n, libelle) for n, libelle in (
+                        (compte["FAIL"], "en échec"), (compte["BLOCKED"], "non testable%s"
+                                                       % ("s" if compte["BLOCKED"] > 1 else "")),
+                        (non_executes, "non exécuté%s" % ("s" if non_executes > 1 else "")))
+                        if n) + ".")
+        ancre = _apres(ancre, "La fonctionnalité « %s » a fait l'objet de tests fonctionnels "
+                              "visant à vérifier les points suivants :" % m.titre,
+                       normal)._element
+        points = (["le critère %s : %s" % (c.code, c.texte.rstrip(".")) for c in criteres]
+                  or ["les cas de test validés à PV-2"])
+        for i, point in enumerate(points):
+            ancre = _puce(ancre, point + (" ;" if i < len(points) - 1 else "."), normal)._element
+        ancre = _apres(ancre, resultat, normal)._element
+        ouvertes = [a for a in anomalies if a.statut in ("OUVERTE", "CORRIGEE")]
+        if ouvertes:
+            _apres(ancre, "Anomalie%s restant à traiter : %s." % (
+                "s" if len(ouvertes) > 1 else "",
+                " ; ".join("%s (%s, %s) — %s" % (a.code, (a.gravite or "à qualifier").lower(),
+                                                  LIBELLES_ANOMALIE[a.statut], a.titre)
+                           for a in ouvertes)), normal)
+        elif anomalies:
+            _apres(ancre, "Les anomalies relevées (%s) sont toutes résolues." %
+                   ", ".join(a.code for a in anomalies), normal)
+        else:
+            _apres(ancre, "Aucune anomalie n'a été constatée au cours de cette phase de tests.",
+                   normal)
+
+    # Conclusion : texte validé et avis, puis la décision de clôture et la validation
+    ancre = titre_conclusion._element
+    if redaction:
+        ancre = _bloc_texte(ancre, redaction["conclusion"], normal)
+        ancre = _apres(ancre, "Avis sur la mise en production : %s." % redaction["avis"],
+                       normal, gras=True)._element
     if cloture:
-        etat = "Recette clôturée %s le %s par %s%s." % (
+        decision = "La recette a été clôturée %s le %s par %s%s" % (
             "avec réserves" if cloture.decision == "CLOTURE_AVEC_RESERVES" else "sans réserve",
             cloture.decide_le.strftime("%d/%m/%Y"), _nom(db, cloture.decideur_id),
             " (auto-validation)" if cloture.auto_validation else "")
-        if cloture.commentaire:
-            etat += " Motif : %s" % cloture.commentaire
-        conclusion.append(etat)
+        decision += (", au motif suivant : « %s »." % cloture.commentaire.rstrip(".")
+                     if cloture.commentaire else ".")
+        ancre = _apres(ancre, decision, normal)._element
         reserves = json.loads(cloture.reserves)
         if reserves:
-            conclusion.append("Réserves enregistrées à la clôture : %s." % " ; ".join(reserves))
+            ancre = _apres(ancre, "Les réserves portent sur les points suivants :", normal)._element
+            for reserve in reserves:
+                ancre = _puce(ancre, reserve, normal)._element
         if cloture.levee_le:
-            levee = "Réserves levées le %s par %s%s." % (
+            levee = "Ces réserves ont été levées le %s par %s%s" % (
                 cloture.levee_le.strftime("%d/%m/%Y"), _nom(db, cloture.levee_par_id),
                 " (auto-validation)" if cloture.levee_auto_validation else "")
-            if cloture.levee_commentaire:
-                levee += " %s" % cloture.levee_commentaire
-            conclusion.append(levee)
-        elif cloture.decision == "CLOTURE_AVEC_RESERVES":
-            conclusion.append("Réserves en cours de levée.")
-    else:
-        conclusion.append("Recette en cours : document de travail, non clôturée.")
-    ancre = titre_conclusion._element
-    for texte in conclusion:
-        ancre = _apres(ancre, texte, normal)._element
+            levee += (" : %s" % cloture.levee_commentaire.rstrip(".") + "."
+                      if cloture.levee_commentaire else ".")
+            ancre = _apres(ancre, levee, normal)._element
+        elif reserves:
+            ancre = _apres(ancre, "Ces réserves sont en cours de levée.", normal)._element
+    elif not redaction:
+        ancre = _apres(ancre, "La recette est en cours : les conclusions seront arrêtées à sa "
+                              "clôture.", normal)._element
     if redaction:
-        ancre = _apres(ancre, "Avis sur la mise en production : %s." % redaction["avis"],
-                       normal, gras=True)._element
         auteur = ("Parties rédigées proposées par l'agent AG-11, relues et validées par %s le %s."
                   if rapport_obj.proposition else "Parties rédigées validées par %s le %s.")
-        _apres(ancre, auteur % (_nom(db, rapport_obj.valide_par_id),
-                                rapport_obj.valide_le.strftime("%d/%m/%Y")), normal)
+        _note(ancre, auteur % (_nom(db, rapport_obj.valide_par_id),
+                               rapport_obj.valide_le.strftime("%d/%m/%Y")), normal)
 
     fd, chemin = tempfile.mkstemp(suffix=".docx")
     os.close(fd)
