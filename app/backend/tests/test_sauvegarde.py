@@ -1,8 +1,7 @@
 """RA-54 : sauvegarde et restauration de la base (vrai pg_dump / pg_restore)."""
-import shutil
-
 import pytest
 from sqlalchemy import func, select, text
+from sqlalchemy.engine import make_url
 
 from qatag import sauvegarde
 from qatag.config import parametres
@@ -11,7 +10,17 @@ from qatag.models import Utilisateur
 
 from .conftest import inscrire
 
-pytestmark = pytest.mark.skipif(not shutil.which("pg_dump"), reason="pg_dump absent")
+def _pg_dump_disponible() -> bool:
+    """Même recherche que l'application : PG_BIN du .env, sinon le PATH."""
+    try:
+        sauvegarde._outil("pg_dump")
+        return True
+    except sauvegarde.ErreurSauvegarde:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _pg_dump_disponible(),
+                                reason="pg_dump introuvable (ni PG_BIN, ni PATH)")
 
 
 @pytest.fixture
@@ -54,9 +63,18 @@ def test_mot_de_passe_hors_ligne_de_commande(client, dossier, monkeypatch):
     monkeypatch.setattr(sauvegarde, "_executer",
                         lambda c, env: (commandes.append((c, env)), vrai(c, env))[1])
     sauvegarde.sauvegarder()
+    url = make_url(parametres().database_url)
+    mdp = url.password
+    assert commandes and mdp
+    # L'utilisateur ou la base peuvent porter le même mot que le mot de passe
+    legitimes = {url.username, url.database}
+    # Comparaisons réduites à un booléen : un échec n'affiche jamais le mot de passe
     for commande, env in commandes:
-        assert "qatag:qatag" not in " ".join(commande)
-        assert env["PGPASSWORD"] == "qatag"
+        en_clair = any((morceau == mdp and morceau not in legitimes) or ":%s@" % mdp in morceau
+                       for morceau in commande)
+        assert not en_clair, "le mot de passe apparaît dans la ligne de commande"
+        transmis = env.get("PGPASSWORD") == mdp
+        assert transmis, "PGPASSWORD ne porte pas le mot de passe de DATABASE_URL"
 
 
 def test_restauration_fichier_absent(dossier):
