@@ -26,12 +26,12 @@ class Parametres(BaseSettings):
     connexion_fenetre_minutes: int = 15
 
     # Emplacements
-    dossier_scripts: Path = RACINE_DEPOT / "webapp" / "scripts"
-    dossier_skills: Path = RACINE_DEPOT / "webapp" / "skills"
+    dossier_scripts: Path = RACINE_DEPOT / "app" / "qa" / "scripts"
+    dossier_skills: Path = RACINE_DEPOT / "app" / "qa" / "skills"
     dossier_fichiers: Path = RACINE_DEPOT / "app" / "donnees"
-    gabarit_cahier: Path = RACINE_DEPOT / "webapp" / "modele-cahier-cas.docx"
+    gabarit_cahier: Path = RACINE_DEPOT / "app" / "qa" / "modeles" / "modele-cahier-cas.docx"
     # Cahier de recette : gabarit DSI du rapport de test après exécution
-    gabarit_rapport_test: Path = RACINE_DEPOT / "webapp" / "modele-rapport-test.docx"
+    gabarit_rapport_test: Path = RACINE_DEPOT / "app" / "qa" / "modeles" / "modele-rapport-test.docx"
 
     # Sauvegardes (RA-54) : dossier, nombre conservé, dossier bin de PostgreSQL
     # si pg_dump n'est pas dans le PATH (fréquent sous Windows)

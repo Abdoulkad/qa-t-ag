@@ -1,6 +1,6 @@
 """Cahier de recette Word (RA-32, RA-33), au gabarit DSI du rapport de test.
 
-Le gabarit (`webapp/modele-rapport-test.docx`) est rempli depuis la base, sans
+Le gabarit (`app/qa/modeles/modele-rapport-test.docx`) est rempli depuis la base, sans
 reformulation : page de garde, contexte de la mission, objectifs (critères
 d'acceptation validés à PV-1), un bloc par cas avec son dernier passage
 (résultat observé, statut coché, captures, testeur et date, commentaires et
