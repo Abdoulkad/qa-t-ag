@@ -16,11 +16,3 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
-  # Ancienne application Streamlit (non maintenue)
-  - package-ecosystem: "pip"
-    directory: "/webapp"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"

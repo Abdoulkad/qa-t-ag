@@ -1,4 +1,4 @@
-"""Pont vers les scripts déterministes existants (webapp/scripts).
+"""Pont vers les scripts déterministes existants (app/qa/scripts).
 
 Les scripts restent l'autorité : on les importe tels quels, sans les
 réécrire. « Le script calcule · l'agent analyse · l'humain arbitre. »

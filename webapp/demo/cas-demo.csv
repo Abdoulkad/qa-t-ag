@@ -1,4 +1,0 @@
-ID;Titre;Objectif;Exigence;Technique;Priorité;Type;Préconditions;Données de test;Étapes;Résultat attendu;Statut livrable
-CT-001;Connexion réussie;Vérifier l'accès avec des identifiants valides;REQ-001, BR-001;partitions d'équivalence;Critique;Sécurité/Habilitation;Fenêtre de connexion affichée;Matricule 990001;1. Saisir le matricule valide;Le message « Connexion réussie. » s'affiche (BR-001);OK
-CT-002;Connexion refusée;Vérifier le message d'erreur;REQ-001, BR-002;partitions d'équivalence;Critique;Sécurité/Habilitation;Fenêtre de connexion affichée;Matricule 990001;1. Saisir un mot de passe incorrect;Le message « Identifiant ou mot de passe incorrect. » s'affiche (BR-002);OK
-CT-003;Déconnexion;Vérifier la déconnexion;REQ-002, BR-003;partitions d'équivalence;Haute;Fonctionnel;Utilisateur connecté;Session active;1. Cliquer sur Déconnexion;Le message « Vous êtes déconnecté. » s'affiche (BR-003);OK

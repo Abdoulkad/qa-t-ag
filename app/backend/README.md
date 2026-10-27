@@ -4,8 +4,9 @@ API de l'application web QA-T-AG. Les règles appliquées sont décrites dans
 [`docs/specifications.md`](../../docs/specifications.md) ; chaque règle
 (RA-xx) est couverte par un test dans `tests/`.
 
-Le backend réutilise les scripts déterministes de `webapp/scripts` et les
-prompts des agents de `webapp/skills`, sans les modifier.
+Le backend s'appuie sur les scripts déterministes de `app/qa/scripts`, les
+consignes des agents de `app/qa/skills` et les gabarits Word de
+`app/qa/modeles` (voir [`app/qa/README.md`](../qa/README.md)).
 
 ## Installation sur Windows
 

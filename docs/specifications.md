@@ -14,7 +14,7 @@ l'action et explique pourquoi.
 
 Sources : retour d'exploration d'un testeur expérimenté sur la maquette
 Lovable (oct. 2026), arbitrages de BAMK du 19/10/2026, scripts déterministes
-existants (`webapp/scripts/`).
+existants (`app/qa/scripts/`).
 
 ---
 
@@ -315,7 +315,7 @@ régression (AG-10) viendront après l'évaluation des agents.
 ## 7 bis. Cahier des cas de test (export Word, avant recette)
 
 Document distinct du cahier de recette : il décrit les cas à exécuter,
-zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.docx`.
+zones d'exécution laissées vides, au gabarit DSI `app/qa/modeles/modele-cahier-cas.docx`.
 
 - **RA-46** Le cahier des cas s'exporte dès que les cas sont conçus (statut
   `ATTENTE_PV2` ou suivant), sur la version courante, **depuis la base** et par
@@ -330,7 +330,7 @@ zones d'exécution laissées vides, au gabarit DSI `webapp/modele-cahier-cas.doc
 ## 8. Cahier de recette (export Word)
 
 - **RA-32** Le cahier est généré **uniquement depuis la base**, au gabarit DSI
-  du rapport de test (`webapp/modele-rapport-test.docx`), dès la première
+  du rapport de test (`app/qa/modeles/modele-rapport-test.docx`), dès la première
   exécution : page de garde (organisation), **Contexte** (mission, version et
   empreinte, validation PV-2, période d'exécution, testeurs), **Objectif**
   (critères d'acceptation validés à PV-1), **Exécution des tests** (un bloc
