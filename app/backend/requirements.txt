@@ -15,4 +15,4 @@ python-multipart==0.0.32
 pypdf==6.21.2
 
 # Tests
-pytest==9.1.1
+pytest==9.2.0
